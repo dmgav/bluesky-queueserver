@@ -901,3 +901,9 @@ def test_http_server_reload_permissions(re_manager_pc_copy, fastapi_server, tmp_
     resp3 = _request_to_json("post", "/queue/item/add", json=plan)
     assert resp3["success"] is True, str(resp3)
     assert resp3["qsize"] == 1, str(resp3)
+
+
+@pytest.mark.parametrize("a", [0] * 1000)
+def test_http_server_communication_reliability(re_manager, fastapi_server, a):  # noqa: F811
+    status = _request_to_json("get", "/status")
+    assert status["manager_state"] =="idle"
