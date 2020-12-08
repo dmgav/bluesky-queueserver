@@ -906,4 +906,4 @@ def test_http_server_reload_permissions(re_manager_pc_copy, fastapi_server, tmp_
 @pytest.mark.parametrize("a", [0] * 1000)
 def test_http_server_communication_reliability(re_manager, fastapi_server, a):  # noqa: F811
     status = _request_to_json("get", "/status")
-    assert status["manager_state"] =="idle"
+    assert status["manager_state"] == "idle"

@@ -31,5 +31,5 @@ jobs:
         pip list
     - name: Test with pytest
       run: |
-        coverage run -m pytest -vv
+        coverage run -m pytest -vv -x -k test_http_server_communication_reliability
         coverage report -m
