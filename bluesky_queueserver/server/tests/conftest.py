@@ -21,6 +21,21 @@ def fastapi_server(xprocess):
     xprocess.getinfo("fastapi_server").terminate()
 
 
+@pytest.fixture
+def fastapi_server_modified(xprocess):
+    class Starter(ProcessStarter):
+        pattern = "Connected to ZeroMQ server"
+        args = f"uvicorn --host={SERVER_ADDRESS} --port {SERVER_PORT} {bqss.__name__}:app".split()
+
+    def start():
+        nonlocal xprocess
+        xprocess.ensure("fastapi_server", Starter)
+
+    yield start
+
+    xprocess.getinfo("fastapi_server").terminate()
+
+
 def add_plans_to_queue():
     """
     Clear the queue and add 3 fixed plans to the queue.

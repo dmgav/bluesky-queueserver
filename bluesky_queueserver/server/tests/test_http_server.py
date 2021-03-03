@@ -15,6 +15,7 @@ from bluesky_queueserver.server.tests.conftest import (  # noqa F401
     SERVER_PORT,
     add_plans_to_queue,
     fastapi_server,
+    fastapi_server_modified,
 )
 
 from bluesky_queueserver.manager.profile_ops import gen_list_of_plans_and_devices
@@ -904,6 +905,7 @@ def test_http_server_reload_permissions(re_manager_pc_copy, fastapi_server, tmp_
 
 
 @pytest.mark.parametrize("a", [0] * 1000)
-def test_http_server_communication_reliability(re_manager, fastapi_server, a):  # noqa: F811
+def test_http_server_communication_reliability(re_manager, fastapi_server_modified, a):  # noqa: F811
+    fastapi_server_modified()
     status = _request_to_json("get", "/status")
     assert status["manager_state"] == "idle"
