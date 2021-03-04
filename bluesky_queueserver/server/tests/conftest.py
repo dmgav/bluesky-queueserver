@@ -23,12 +23,13 @@ def fastapi_server(xprocess):
 
 @pytest.fixture
 def fastapi_server_modified(xprocess):
-    class Starter(ProcessStarter):
-        pattern = "Connected to ZeroMQ server"
-        args = f"uvicorn --host={SERVER_ADDRESS} --port {SERVER_PORT} {bqss.__name__}:app".split()
-
     def start():
         nonlocal xprocess
+
+        class Starter(ProcessStarter):
+            pattern = "Connected to ZeroMQ server"
+            args = f"uvicorn --host={SERVER_ADDRESS} --port {SERVER_PORT} {bqss.__name__}:app".split()
+
         xprocess.ensure("fastapi_server", Starter)
 
     yield start
