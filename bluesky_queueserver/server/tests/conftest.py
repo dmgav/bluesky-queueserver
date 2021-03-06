@@ -1,5 +1,6 @@
 import pytest
 from xprocess import ProcessStarter
+import time as ttime
 
 import bluesky_queueserver.server.server as bqss
 from bluesky_queueserver.manager.comms import zmq_single_request
@@ -31,7 +32,9 @@ def fastapi_server_modified(xprocess):
             args = f"uvicorn --host={SERVER_ADDRESS} --port {SERVER_PORT} {bqss.__name__}:app".split()
 
         xprocess.ensure("fastapi_server", Starter)
-
+        print(f"Process started")
+        ttime.sleep(1)
+        print(f"Pause completed")
     yield start
 
     xprocess.getinfo("fastapi_server").terminate()
