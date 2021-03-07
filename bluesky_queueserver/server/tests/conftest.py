@@ -31,13 +31,16 @@ def fastapi_server_modified(xprocess):
             pattern = "Connected to ZeroMQ server"
             args = f"uvicorn --host={SERVER_ADDRESS} --port {SERVER_PORT} {bqss.__name__}:app".split()
 
-        xprocess.ensure("fastapi_server", Starter)
-        print(f"Process started")
+        print("Pausing before starting the server ...")
         ttime.sleep(1)
-        print(f"Pause completed")
+        print("Starting the server ...")
+        xprocess.ensure("fastapi_server", Starter)
+        print("Process started")
     yield start
 
+    print("Stopping the server ...")
     xprocess.getinfo("fastapi_server").terminate()
+    print("Server is stopped")
 
 
 def add_plans_to_queue():
