@@ -910,6 +910,6 @@ def test_http_server_communication_reliability(re_manager, fastapi_server_modifi
     fastapi_server_modified()
     print("Test step 2: requesting status")
     status = _request_to_json("get", "/status")
-    print(f"Test step 3: verifying the result")
+    print("Test step 3: verifying the result")
     assert status["manager_state"] == "idle"
-    print(f"Test step 4: test finished")
+    print("Test step 4: test finished")

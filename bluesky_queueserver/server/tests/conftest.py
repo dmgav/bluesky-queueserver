@@ -35,7 +35,10 @@ def fastapi_server_modified(xprocess):
         ttime.sleep(1)
         print("Starting the server ...")
         xprocess.ensure("fastapi_server", Starter)
+        print("Pausing ...")
+        ttime.sleep(1)
         print("Process started")
+
     yield start
 
     print("Stopping the server ...")
