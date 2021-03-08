@@ -28,7 +28,8 @@ def fastapi_server_modified(xprocess):
         nonlocal xprocess
 
         class Starter(ProcessStarter):
-            pattern = "Connected to ZeroMQ server"
+            # pattern = "Connected to ZeroMQ server"
+            pattern = "Uvicorn running on"
             args = f"uvicorn --host={SERVER_ADDRESS} --port {SERVER_PORT} {bqss.__name__}:app".split()
 
         print("Pausing before starting the server ...")
