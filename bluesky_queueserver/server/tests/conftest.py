@@ -2,7 +2,7 @@ import pytest
 from xprocess import ProcessStarter
 import socket
 
-# import time as ttime
+import time as ttime
 
 import bluesky_queueserver.server.server as bqss
 from bluesky_queueserver.manager.comms import zmq_single_request
@@ -48,11 +48,15 @@ def fastapi_server_modified(xprocess):
     xprocess.getinfo("fastapi_server").terminate()
     print("Server is stopped")
 
-    try:
-        socket.create_connection(("localhost", 60610), 10)
-        raise Exception("uivcorn failed to release the socket - next test would fail")
-    except ConnectionRefusedError:
-        pass
+    t = ttime.time() + 30  # set timeout
+    while True:
+        if ttime.time() > t:
+            raise Exception("uivcorn failed to release the socket - next test would fail")
+        try:
+            socket.create_connection(("localhost", 60610), 10)
+        except ConnectionRefusedError:
+            break
+        ttime.sleep(1)
     print("Checked that the socket was released")
 
 
