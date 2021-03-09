@@ -905,9 +905,9 @@ def test_http_server_reload_permissions(re_manager_pc_copy, fastapi_server, tmp_
 
 
 @pytest.mark.parametrize("a", [0] * 1000)
-def test_http_server_communication_reliability(re_manager, fastapi_server_modified, a):  # noqa: F811
+def test_http_server_communication_reliability(re_manager, fastapi_server, a):  # noqa: F811
     print("Test step 1: starting the server")
-    fastapi_server_modified()
+    # fastapi_server_modified()
     print("Test step 2: requesting status")
     status = _request_to_json("get", "/status")
     print("Test step 3: verifying the result")
