@@ -50,8 +50,9 @@ def fastapi_server_modified(xprocess):
 
     try:
         socket.create_connection(("localhost", 60610), 10)
-    except ConnectionRefusedError:
         raise Exception("uivcorn failed to release the socket - next test would fail")
+    except ConnectionRefusedError:
+        pass
     print("Checked that the socket was released")
 
 
