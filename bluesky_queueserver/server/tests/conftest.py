@@ -1,6 +1,6 @@
 import pytest
 from xprocess import ProcessStarter
-# import socket
+import socket
 
 # import time as ttime
 
@@ -48,12 +48,12 @@ def fastapi_server_modified(xprocess):
     xprocess.getinfo("fastapi_server").terminate()
     print("Server is stopped")
 
-    # try:
-    #     socket.create_connection(("localhost", 60610), 10)
-    #     raise Exception("uivcorn failed to release the socket - next test would fail")
-    # except ConnectionRefusedError:
-    #     pass
-    # print("Checked that the socket was released")
+    try:
+        socket.create_connection(("localhost", 60610), 10)
+        raise Exception("uivcorn failed to release the socket - next test would fail")
+    except ConnectionRefusedError:
+        pass
+    print("Checked that the socket was released")
 
 
 def add_plans_to_queue():
