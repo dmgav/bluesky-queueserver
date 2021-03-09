@@ -3,7 +3,7 @@ from xprocess import ProcessStarter
 
 # import socket
 
-import time as ttime
+# import time as ttime
 
 import bluesky_queueserver.server.server as bqss
 from bluesky_queueserver.manager.comms import zmq_single_request
@@ -44,20 +44,24 @@ def fastapi_server_modified(xprocess):
         print("Pausing before starting the server ...")
         # ttime.sleep(1)
         print("Starting the server ...")
-        server_started = False
-        for _ in range(30):
-            try:
-                xprocess.ensure("fastapi_server", Starter)
-                resp1 = _request_to_json("get", "/")
-                assert resp1["msg"] == "RE Manager"
-                server_started = True
-                break
-            except Exception as ex:
-                print("Error occurred while starting the server", ex)
-                xprocess.getinfo("fastapi_server").terminate()
-            ttime.sleep(1)
-        if not server_started:
-            raise Exception("Failed to start the web server")
+        # server_started = False
+        # for _ in range(30):
+        #     try:
+        #         xprocess.ensure("fastapi_server", Starter)
+        #         resp1 = _request_to_json("get", "/")
+        #         assert resp1["msg"] == "RE Manager"
+        #         server_started = True
+        #         break
+        #     except Exception as ex:
+        #         print("Error occurred while starting the server", ex)
+        #         xprocess.getinfo("fastapi_server").terminate()
+        #     ttime.sleep(1)
+        # if not server_started:
+        #     raise Exception("Failed to start the web server")
+
+        xprocess.ensure("fastapi_server", Starter)
+        resp = _request_to_json("get", "/")
+        assert resp["msg"] == "RE Manager"
 
         print("Pausing ...")
         # ttime.sleep(1)
