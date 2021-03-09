@@ -1,6 +1,7 @@
 import pytest
 from xprocess import ProcessStarter
-import socket
+
+# import socket
 
 import time as ttime
 
@@ -26,6 +27,12 @@ def fastapi_server(xprocess):
 
 @pytest.fixture
 def fastapi_server_modified(xprocess):
+    def _request_to_json(request_type, path, **kwargs):
+        import requests
+
+        resp = getattr(requests, request_type)(f"http://{SERVER_ADDRESS}:{SERVER_PORT}{path}", **kwargs).json()
+        return resp
+
     def start():
         nonlocal xprocess
 
@@ -37,7 +44,21 @@ def fastapi_server_modified(xprocess):
         print("Pausing before starting the server ...")
         # ttime.sleep(1)
         print("Starting the server ...")
-        xprocess.ensure("fastapi_server", Starter)
+        server_started = False
+        for _ in range(30):
+            try:
+                xprocess.ensure("fastapi_server", Starter)
+                resp1 = _request_to_json("get", "/")
+                assert resp1["msg"] == "RE Manager"
+                server_started = True
+                break
+            except Exception as ex:
+                print("Error occurred while starting the server", ex)
+                xprocess.getinfo("fastapi_server").terminate()
+            ttime.sleep(1)
+        if not server_started:
+            raise Exception("Failed to start the web server")
+
         print("Pausing ...")
         # ttime.sleep(1)
         print("Process started")
@@ -48,16 +69,16 @@ def fastapi_server_modified(xprocess):
     xprocess.getinfo("fastapi_server").terminate()
     print("Server is stopped")
 
-    t = ttime.time() + 30  # set timeout
-    while True:
-        if ttime.time() > t:
-            raise Exception("uivcorn failed to release the socket - next test would fail")
-        try:
-            socket.create_connection(("localhost", 60610), 10)
-        except ConnectionRefusedError:
-            break
-        ttime.sleep(1)
-    print("Checked that the socket was released")
+    # t = ttime.time() + 30  # set timeout
+    # while True:
+    #     if ttime.time() > t:
+    #         raise Exception("uivcorn failed to release the socket - next test would fail")
+    #     try:
+    #         socket.create_connection(("localhost", 60610), 10)
+    #     except ConnectionRefusedError:
+    #         break
+    #     ttime.sleep(1)
+    # print("Checked that the socket was released")
 
 
 def add_plans_to_queue():
