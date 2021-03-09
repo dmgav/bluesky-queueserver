@@ -1,5 +1,7 @@
 import pytest
 from xprocess import ProcessStarter
+import socket
+
 # import time as ttime
 
 import bluesky_queueserver.server.server as bqss
@@ -45,6 +47,12 @@ def fastapi_server_modified(xprocess):
     print("Stopping the server ...")
     xprocess.getinfo("fastapi_server").terminate()
     print("Server is stopped")
+
+    try:
+        socket.create_connection(("localhost", 60610), 10)
+    except ConnectionRefusedError:
+        raise Exception("uivcorn failed to release the socket - next test would fail")
+    print("Checked that the socket was released")
 
 
 def add_plans_to_queue():
