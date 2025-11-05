@@ -1824,7 +1824,7 @@ class RunEngineManager(Process):
         # Status is expected to be requested very often. Print the message only in the debug mode.
         logger.debug("Processing 'status' request ...")
 
-        await self._status_update(self)
+        await self._status_update()
         return self._status
 
     async def _config_get_handler(self, request):
