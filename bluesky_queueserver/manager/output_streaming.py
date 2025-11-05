@@ -95,7 +95,7 @@ _default_zmq_console_topic = "QS_Console"
 _default_zmq_info_topic = "QS_Info"
 
 
-class PublishConsoleOutput:
+class PublishZMQStreamOutput:
     """
     The class that is publishing the collected console output messages to 0MQ socket.
     The queue is expected to be filled with messages in the format
@@ -242,6 +242,9 @@ class _ReceiveZMQStreamOutput:
     The ``subscribe()`` and ``unsubscribe()`` methods allow to explicitly subscribe and
     unsubscribe the socket to the topic. The messages published while the socket is unsubscribed
     are discarded. First call to ``recv()`` method automatically subscribes the socket.
+
+    The following code is an example of using the ``ReceiveConsoleOutput`` subclass,
+    which is configured to receive console output:
 
     .. code-block:: python
 
@@ -403,7 +406,7 @@ class ReceiveSystemInfo(_ReceiveZMQStreamOutput):
 class _ReceiveZMQStreamOutputAsync:
     """
     Async version of ``_ReceiveZMQStreamOutput`` class. There are two ways to use the class:
-    explicitly awaiting for the ``recv`` function (same as in ``ReceiveConsoleOutput``)
+    explicitly awaiting for the ``recv`` function (same as in ``_ReceiveZMQStreamOutput``)
     or setting up a callback function (plain function or coroutine).
 
     The ``subscribe()`` and ``unsubscribe()`` methods allow to explicitly subscribe and
@@ -411,7 +414,7 @@ class _ReceiveZMQStreamOutputAsync:
     are discarded. Calls to ``recv()`` and ``start()`` methods always subscribe the socket,
     ``stop()`` method unsubscribes the socket unless called with ``unsubscribe=False``.
 
-    Explicitly awaiting ``recv`` function:
+    Explicitly awaiting ``recv`` function (``ReceiveConsoleOutputAsync`` is a subclass):
 
     .. code-block:: python
 

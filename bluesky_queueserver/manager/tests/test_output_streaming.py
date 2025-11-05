@@ -9,7 +9,7 @@ import pytest
 from bluesky_queueserver.manager.comms import ZMQEncoding, process_zmq_encoding_name
 from bluesky_queueserver.manager.output_streaming import (
     ConsoleOutputStream,
-    PublishConsoleOutput,
+    PublishZMQStreamOutput,
     ReceiveConsoleOutput,
     ReceiveConsoleOutputAsync,
     ReceiveSystemInfo,
@@ -102,7 +102,7 @@ def test_ReceiveConsoleOutput_1(
     capfd, console_output_on, zmq_publish_on, sub, unsub, period, timeout, n_timeouts, zmq_encoding, channel
 ):
     """
-    Tests for ``ReceiveConsoleOutput`` and ``PublishConsoleOutput``.
+    Tests for ``ReceiveConsoleOutput``, ``ReceiveSystemInfo`` and ``PublishZMQStreamOutput``.
     """
     zmq_port = 61223  # Arbitrary port
     zmq_topic_console = "testing_topic_console"
@@ -113,7 +113,7 @@ def test_ReceiveConsoleOutput_1(
 
     queue = multiprocessing.Queue()
 
-    pco = PublishConsoleOutput(
+    pco = PublishZMQStreamOutput(
         msg_queue=queue,
         console_output_on=console_output_on,
         zmq_publish_on=zmq_publish_on,
@@ -238,7 +238,8 @@ def test_ReceiveConsoleOutput_1(
 @pytest.mark.xfail(reason="Test often fails when run on CI, but expected to pass locally")
 def test_ReceiveConsoleOutputAsync_1(period, cb_type, zmq_encoding, channel):
     """
-    Basic test for ``ReceiveConsoleOutputAsync``: send and receive 3 messages over 0MQ.
+    Basic test for ``ReceiveConsoleOutputAsync`` and ``ReceiveSystemInfoAsync``:
+    send and receive 3 messages over 0MQ.
     Send messages with different period (to check if timeout is handled correctly) and
     tests with callbacks in the form of plain function and coroutine.
     """
@@ -253,7 +254,7 @@ def test_ReceiveConsoleOutputAsync_1(period, cb_type, zmq_encoding, channel):
 
     queue = multiprocessing.Queue()
 
-    pco = PublishConsoleOutput(
+    pco = PublishZMQStreamOutput(
         msg_queue=queue,
         console_output_on=True,
         zmq_publish_on=True,
@@ -405,7 +406,7 @@ def test_ConsoleOutput_zmq_encoding_1(zmq_encoding):
 
     queue = multiprocessing.Queue()
 
-    pco = PublishConsoleOutput(msg_queue=queue, **params)
+    pco = PublishZMQStreamOutput(msg_queue=queue, **params)
     assert pco._encoding == encoding
 
     rco1 = ReceiveConsoleOutput(**params)
