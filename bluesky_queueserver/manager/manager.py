@@ -216,6 +216,9 @@ class RunEngineManager(Process):
         self._watchdog_conn = conn_watchdog
         self._worker_conn = conn_worker
 
+        # Recent RE Manager status. The status must be updated after each operation by 'self._status_update()'
+        self._status = {}
+
         # The number of time RE Manager was started (including the first attempt to start it).
         #   Numbering starts from 1.
         self._number_of_restarts = number_of_restarts
@@ -1745,13 +1748,10 @@ class RunEngineManager(Process):
     def _compute_re_state(self):
         return self._worker_state_info["re_state"] if self._worker_state_info else None
 
-    async def _status_handler(self, request):
+    async def _status_update(self):
         """
-        Returns status of the manager.
+        Compute the updated status
         """
-        # Status is expected to be requested very often. Print the message only in the debug mode.
-        logger.debug("Processing 'status' request ...")
-
         # Computed/retrieved data
         n_pending_items = await self._plan_queue.get_queue_size()
         running_item_info = await self._plan_queue.get_running_item_info()
@@ -1759,6 +1759,7 @@ class RunEngineManager(Process):
 
         # Prepared output data
         response_msg = f"RE Manager v{qserver_version}"
+        status_uid = _generate_uid()  # Generate the new status UID each time the status is updated
         items_in_queue = n_pending_items
         items_in_history = n_items_in_history
         running_item_uid = running_item_info["item_uid"] if running_item_info else None
@@ -1784,12 +1785,10 @@ class RunEngineManager(Process):
         lock_info_uid = self._lock_info.uid
         locked_environment = self._lock_info.environment
         locked_queue = self._lock_info.queue
-        # worker_state_info = self._worker_state_info
 
-        # TODO: consider different levels of verbosity for ping or other command to
-        #       retrieve detailed status.
-        msg = {
+        self._status = {
             "msg": response_msg,
+            "status_uid": status_uid,
             "items_in_queue": items_in_queue,
             "items_in_history": items_in_history,
             "running_item_uid": running_item_uid,
@@ -1816,9 +1815,17 @@ class RunEngineManager(Process):
             "task_results_uid": task_results_uid,
             "lock_info_uid": lock_info_uid,
             "lock": {"environment": locked_environment, "queue": locked_queue},
-            # "worker_state_info": worker_state_info
         }
-        return msg
+
+    async def _status_handler(self, request):
+        """
+        Returns status of the manager.
+        """
+        # Status is expected to be requested very often. Print the message only in the debug mode.
+        logger.debug("Processing 'status' request ...")
+
+        await self._status_update(self)
+        return self._status
 
     async def _config_get_handler(self, request):
         """
