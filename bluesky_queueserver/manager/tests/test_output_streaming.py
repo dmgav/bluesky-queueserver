@@ -12,6 +12,8 @@ from bluesky_queueserver.manager.output_streaming import (
     PublishConsoleOutput,
     ReceiveConsoleOutput,
     ReceiveConsoleOutputAsync,
+    ReceiveSystemInfo,
+    ReceiveSystemInfoAsync,
     setup_console_output_redirection,
 )
 
@@ -79,6 +81,7 @@ def test_setup_console_output_redirection_1(sys_stdout_stderr_restore):
 
 
 # fmt: off
+@pytest.mark.parametrize("channel", ["console", "info"])
 @pytest.mark.parametrize("zmq_encoding", ["json", "msgpack"])
 @pytest.mark.parametrize("console_output_on, zmq_publish_on, sub, unsub, period, timeout, n_timeouts", [
     (True, True, False, False, 0, None, 0),
@@ -96,13 +99,14 @@ def test_setup_console_output_redirection_1(sys_stdout_stderr_restore):
 # TODO: this test may need to be changed to run more reliably on CI
 @pytest.mark.xfail(reason="Test often fails when run on CI, but expected to pass locally")
 def test_ReceiveConsoleOutput_1(
-    capfd, console_output_on, zmq_publish_on, sub, unsub, period, timeout, n_timeouts, zmq_encoding
+    capfd, console_output_on, zmq_publish_on, sub, unsub, period, timeout, n_timeouts, zmq_encoding, channel
 ):
     """
     Tests for ``ReceiveConsoleOutput`` and ``PublishConsoleOutput``.
     """
     zmq_port = 61223  # Arbitrary port
-    zmq_topic = "testing_topic"
+    zmq_topic_console = "testing_topic_console"
+    zmq_topic_info = "testing_topic_info"
 
     zmq_publish_addr = f"tcp://*:{zmq_port}"
     zmq_subscribe_addr = f"tcp://localhost:{zmq_port}"
@@ -114,14 +118,15 @@ def test_ReceiveConsoleOutput_1(
         console_output_on=console_output_on,
         zmq_publish_on=zmq_publish_on,
         zmq_publish_addr=zmq_publish_addr,
-        zmq_topic=zmq_topic,
+        zmq_topic_console=zmq_topic_console,
+        zmq_topic_info=zmq_topic_info,
         encoding=zmq_encoding,
     )
 
     class ReceiveMessages(threading.Thread):
-        def __init__(self, *, zmq_subscribe_addr, zmq_topic, encoding):
+        def __init__(self, *, receiver_class, zmq_subscribe_addr, zmq_topic, encoding):
             super().__init__()
-            self._rco = ReceiveConsoleOutput(
+            self._rco = receiver_class(
                 zmq_subscribe_addr=zmq_subscribe_addr, zmq_topic=zmq_topic, encoding=encoding
             )
             self._exit = False
@@ -148,20 +153,35 @@ def test_ReceiveConsoleOutput_1(
         def unsubscribe(self):
             self._rco.unsubscribe()
 
-    rm = ReceiveMessages(zmq_subscribe_addr=zmq_subscribe_addr, zmq_topic=zmq_topic, encoding=zmq_encoding)
+    rm_console = ReceiveMessages(
+        receiver_class=ReceiveConsoleOutput,
+        zmq_subscribe_addr=zmq_subscribe_addr,
+        zmq_topic=zmq_topic_console,
+        encoding=zmq_encoding,
+    )
+
+    rm_info = ReceiveMessages(
+        receiver_class=ReceiveSystemInfo,
+        zmq_subscribe_addr=zmq_subscribe_addr,
+        zmq_topic=zmq_topic_info,
+        encoding=zmq_encoding,
+    )
 
     pco.start()
 
     if sub:
-        rm.subscribe()
+        rm_console.subscribe()
+        rm_info.subscribe()
     if unsub:
-        rm.unsubscribe()
+        rm_console.unsubscribe()
+        rm_info.unsubscribe()
     if not sub and not unsub:
-        rm.start()
+        rm_console.start()
+        rm_info.start()
 
     msgs = ["message-one\n", "message-two\n", "message-three\n"]
     for msg in msgs:
-        queue.put({"time": ttime.time(), "msg": msg})
+        queue.put({"channel": channel, "time": ttime.time(), "msg": msg})
         ttime.sleep(period)
 
     # Wait for all messages to be sent
@@ -171,19 +191,31 @@ def test_ReceiveConsoleOutput_1(
     ttime.sleep(pco._polling_timeout * 2)
 
     if sub or unsub:
-        rm.start()
+        rm_console.start()
+        rm_info.start()
         ttime.sleep(pco._polling_timeout * 2)
 
-    rm.stop()
-    rm.join()
+    rm_console.stop()
+    rm_info.stop()
+    rm_console.join()
+    rm_info.join()
+
+    if channel == "console":
+        rm = rm_console
+        rm_no_msg = rm_info
+    elif channel == "info":
+        rm = rm_info
+        rm_no_msg = rm_console
 
     if zmq_publish_on and not unsub:
         assert len(rm.received_msgs) == 3
+        assert len(rm_no_msg.received_msgs) == 0
         for msg_received, msg in zip(rm.received_msgs, msgs):
             assert isinstance(msg_received["time"], float)
             assert msg_received["msg"] == msg
     else:
-        assert len(rm.received_msgs) == 0
+        assert len(rm_console.received_msgs) == 0
+        assert len(rm_info.received_msgs) == 0
 
     captured = capfd.readouterr()
     if console_output_on:
@@ -197,13 +229,14 @@ def test_ReceiveConsoleOutput_1(
 
 
 # fmt: off
+@pytest.mark.parametrize("channel", ["console", "info"])
 @pytest.mark.parametrize("zmq_encoding", ["json", "msgpack"])
 @pytest.mark.parametrize("period", [0.5, 1, 1.5])
 @pytest.mark.parametrize("cb_type", ["func", "coro"])
 # fmt: on
 # TODO: this test may need to be changed to run more reliably on CI
 @pytest.mark.xfail(reason="Test often fails when run on CI, but expected to pass locally")
-def test_ReceiveConsoleOutputAsync_1(period, cb_type, zmq_encoding):
+def test_ReceiveConsoleOutputAsync_1(period, cb_type, zmq_encoding, channel):
     """
     Basic test for ``ReceiveConsoleOutputAsync``: send and receive 3 messages over 0MQ.
     Send messages with different period (to check if timeout is handled correctly) and
@@ -212,7 +245,8 @@ def test_ReceiveConsoleOutputAsync_1(period, cb_type, zmq_encoding):
     timeout = 1000  # Timeout used for waiting for incoming messages
 
     zmq_port = 61223  # Arbitrary port
-    zmq_topic = "testing_topic"
+    zmq_topic_console = "testing_topic_console"
+    zmq_topic_info = "testing_topic_info"
 
     zmq_publish_addr = f"tcp://*:{zmq_port}"
     zmq_subscribe_addr = f"tcp://localhost:{zmq_port}"
@@ -224,7 +258,8 @@ def test_ReceiveConsoleOutputAsync_1(period, cb_type, zmq_encoding):
         console_output_on=True,
         zmq_publish_on=True,
         zmq_publish_addr=zmq_publish_addr,
-        zmq_topic=zmq_topic,
+        zmq_topic_console=zmq_topic_console,
+        zmq_topic_info=zmq_topic_info,
         encoding=zmq_encoding,
     )
 
@@ -232,40 +267,59 @@ def test_ReceiveConsoleOutputAsync_1(period, cb_type, zmq_encoding):
 
     msgs = ["message-one\n", "message-two\n", "message-three\n"]
 
-    rm = ReceiveConsoleOutputAsync(
-        zmq_subscribe_addr=zmq_subscribe_addr, zmq_topic=zmq_topic, timeout=timeout, encoding=zmq_encoding
+    rm_console = ReceiveConsoleOutputAsync(
+        zmq_subscribe_addr=zmq_subscribe_addr, zmq_topic=zmq_topic_console, timeout=timeout, encoding=zmq_encoding
+    )
+    rm_info = ReceiveSystemInfoAsync(
+        zmq_subscribe_addr=zmq_subscribe_addr, zmq_topic=zmq_topic_info, timeout=timeout, encoding=zmq_encoding
     )
     ttime.sleep(1)  # Important when executed on CI
 
     async def testing():
-        msgs_received = []
+        msgs_received_console, msgs_received_info = [], []
 
-        def cb_func(msg):
-            msgs_received.append(msg)
+        def cb_func_console(msg):
+            msgs_received_console.append(msg)
 
-        async def cb_coro(msg):
-            msgs_received.append(msg)
+        def cb_func_info(msg):
+            msgs_received_info.append(msg)
+
+        async def cb_coro_console(msg):
+            msgs_received_console.append(msg)
+
+        async def cb_coro_info(msg):
+            msgs_received_info.append(msg)
 
         if cb_type == "func":
-            cb = cb_func
+            cb_console, cb_info = cb_func_console, cb_func_info
         elif cb_type == "coro":
-            cb = cb_coro
+            cb_console, cb_info = cb_coro_console, cb_coro_info
         else:
             raise RuntimeError(f"Unknown callback type: {cb_type!r}")
 
-        rm.set_callback(cb=cb)
+        rm_console.set_callback(cb=cb_console)
+        rm_info.set_callback(cb=cb_info)
 
         for n in range(2):
             # ReceiveConsoleOutputAsync is expected to allow to start and stop acquisition multiple times.
-            msgs_received.clear()
-            rm.start()
-            rm.start()  # Repeated attempts to start should have no effect
+            msgs_received_console.clear()
+            msgs_received_info.clear()
+            rm_console.start()
+            rm_info.start()
+            rm_console.start()  # Repeated attempts to start should have no effect
+            rm_info.start()
 
             for msg in msgs:
-                queue.put({"time": ttime.time(), "msg": msg})
+                queue.put({"channel": channel, "time": ttime.time(), "msg": msg})
                 await asyncio.sleep(1)
 
-            rm.stop()
+            rm_console.stop()
+            rm_info.stop()
+
+            if channel == "console":
+                msgs_received, msgs_received_empty = msgs_received_console, msgs_received_info
+            elif channel == "info":
+                msgs_received, msgs_received_empty = msgs_received_info, msgs_received_console
 
             # Wait for all messages to be sent. It happens almost instantly when tests are run
             #   locally, but there could be delays when running on CI.
@@ -275,12 +329,13 @@ def test_ReceiveConsoleOutputAsync_1(period, cb_type, zmq_encoding):
                     break
 
             assert len(msgs_received) == 3, f"Attempt #{n + 1}"
+            assert len(msgs_received_empty) == 0
             for msg_received, msg in zip(msgs_received, msgs):
                 assert isinstance(msg_received["time"], float)
                 assert msg_received["msg"] == msg
 
             # Send an extra message. Acquisition is stopped at this point
-            queue.put({"time": ttime.time(), "msg": "Message is expected to be discarded"})
+            queue.put({"channel": channel, "time": ttime.time(), "msg": "Message is expected to be discarded"})
             await asyncio.sleep(1)
 
     asyncio.run(testing())
