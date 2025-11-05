@@ -16,7 +16,7 @@ import bluesky_queueserver
 from .comms import CommTimeoutError, PipeJsonRpcSendAsync, ZMQEncoding, process_zmq_encoding_name, validate_zmq_key
 from .logging_setup import PPrintForLogging as ppfl
 from .logging_setup import setup_loggers
-from .output_streaming import setup_console_output_redirection
+from .output_streaming import push_info_to_msg_queue, setup_console_output_redirection
 from .plan_queue_ops import PlanQueueOperations
 from .profile_ops import (
     check_if_function_allowed,
@@ -1745,6 +1745,13 @@ class RunEngineManager(Process):
         """
         return await self._status_handler(request)
 
+    def _status_publish(self):
+        """
+        Publish current status to the 0MQ 'info' socket.
+        """
+        if self._status:
+            push_info_to_msg_queue(key="status", msg=self._status, msg_queue=self._msg_queue)
+
     def _compute_re_state(self):
         return self._worker_state_info["re_state"] if self._worker_state_info else None
 
@@ -1786,6 +1793,8 @@ class RunEngineManager(Process):
         locked_environment = self._lock_info.environment
         locked_queue = self._lock_info.queue
 
+        # The status reference is replaced each time status is updated, i.e. stored reference should not be
+        #   used to access status. On the other hand the reference can be used to store the current status.
         self._status = {
             "msg": response_msg,
             "status_uid": status_uid,
@@ -1825,6 +1834,7 @@ class RunEngineManager(Process):
         logger.debug("Processing 'status' request ...")
 
         await self._status_update()
+        self._status_publish()
         return self._status
 
     async def _config_get_handler(self, request):

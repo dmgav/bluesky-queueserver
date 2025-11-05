@@ -91,6 +91,30 @@ def setup_console_output_redirection(msg_queue):
             pass
 
 
+def push_info_to_msg_queue(*, key, msg, msg_queue):
+    """
+    Format the message and put it into the message queue. The message is published to
+    the ``info`` socket in the ``"info"`` channel.
+
+    Parameters
+    ----------
+    key : str
+        The key used for the message. The message is formatted as a dictionary:
+        ``{"channel": "info", "time": ttime.time(), "msg": {key: msg}}``.
+        The key is used to identify the information in the message. E.g. ``"status"``.
+    msg : dict
+        The message is a dictionary with useful information (actual payload).
+    msg_queue : multiprocessing.Queue
+        Reference to the queue used for collecting messages.
+
+    Returns
+    -------
+    None
+    """
+    msg = {"channel": "info", "time": ttime.time(), "msg": {key: msg}}
+    msg_queue.put(msg)
+
+
 _default_zmq_console_topic = "QS_Console"
 _default_zmq_info_topic = "QS_Info"
 
