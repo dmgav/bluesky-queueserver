@@ -1755,6 +1755,12 @@ class RunEngineManager(Process):
     def _compute_re_state(self):
         return self._worker_state_info["re_state"] if self._worker_state_info else None
 
+    def _get_timestamp_iso8601(self):
+        """
+        Returns current timestamp in ISO 8601 format.
+        """
+        return datetime.now().isoformat()
+
     async def _status_update(self):
         """
         Compute the updated status
@@ -1767,6 +1773,7 @@ class RunEngineManager(Process):
         # Prepared output data
         response_msg = f"RE Manager v{qserver_version}"
         status_uid = _generate_uid()  # Generate the new status UID each time the status is updated
+        timestamp = self._get_timestamp_iso8601()
         items_in_queue = n_pending_items
         items_in_history = n_items_in_history
         running_item_uid = running_item_info["item_uid"] if running_item_info else None
@@ -1798,6 +1805,7 @@ class RunEngineManager(Process):
         self._status = {
             "msg": response_msg,
             "status_uid": status_uid,
+            "timestamp": timestamp,
             "items_in_queue": items_in_queue,
             "items_in_history": items_in_history,
             "running_item_uid": running_item_uid,
