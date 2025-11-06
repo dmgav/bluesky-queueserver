@@ -1804,8 +1804,7 @@ class RunEngineManager(Process):
         #   used to access status. On the other hand the reference can be used to store the current status.
         self._status = {
             "msg": response_msg,
-            "status_uid": status_uid,
-            "timestamp": timestamp,
+            "time": timestamp,
             "items_in_queue": items_in_queue,
             "items_in_history": items_in_history,
             "running_item_uid": running_item_uid,
@@ -1821,6 +1820,7 @@ class RunEngineManager(Process):
             "pause_pending": deferred_pause_pending,  # True/False - Cleared once pause processed
             # If Run List UID change, download the list of runs for the current plan.
             # Run List UID is updated when the list is cleared as well.
+            "status_uid": status_uid,
             "run_list_uid": run_list_uid,
             "plan_queue_uid": plan_queue_uid,
             "plan_history_uid": plan_history_uid,
