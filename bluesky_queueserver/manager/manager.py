@@ -1834,6 +1834,8 @@ class RunEngineManager(Process):
             "lock": {"environment": locked_environment, "queue": locked_queue},
         }
 
+        self._status_publish()  # Add the updated status to 'msg_queue'
+
     async def _status_handler(self, request):
         """
         Returns status of the manager.
@@ -1842,7 +1844,6 @@ class RunEngineManager(Process):
         logger.debug("Processing 'status' request ...")
 
         await self._status_update()
-        self._status_publish()
         return self._status
 
     async def _config_get_handler(self, request):
