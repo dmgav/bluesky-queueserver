@@ -279,6 +279,10 @@ class RunEngineManager(Process):
         self._heartbeat_generator_task = None  # Task for heartbeat generator
         self._worker_status_task = None  # Task for periodic checks of Worker status
 
+        self._status_publish_periodic_task = None  # Task for periodic publishing of the status
+        self._status_publish_period = 1  # Desired period for publishing status, seconds
+        self._status_publish_next_time = 0  # Time when the status will be published next
+
         # The future is used for opening/closing RE Worker environment. Those task always run separately.
         self._fut_manager_task_completed = None
 
@@ -359,6 +363,32 @@ class RunEngineManager(Process):
                 break
             except Exception as ex:
                 logger.warning(f"Exception occurred while sending heartbeat: {ex}")
+
+    async def _status_publish_periodic(self):
+        """
+        Task that periodically publishes status to ZMQ socket (adds message to 'msg_queue').
+        """
+        # Initialize next publish time. The publish time is updated in 'self._status_publish()'.
+        self._status_publish_next_time = ttime.time() + self._status_publish_period
+
+        while True:
+            try:
+                wait_time = max(self._status_publish_next_time - ttime.time(), 0)
+                await asyncio.sleep(wait_time)
+                if ttime.time() >= self._status_publish_next_time - 0.1:
+                    self._status_publish()
+            except asyncio.CancelledError:
+                break
+            except Exception as ex:
+                logger.warning(f"Exception occurred while periodic publishing of the status: {ex}")
+
+    def _status_publish(self):
+        """
+        Publish current status to the 0MQ 'info' socket.
+        """
+        self._status_publish_next_time = ttime.time() + self._status_publish_period
+        if self._status:
+            push_info_to_msg_queue(key="status", msg=self._status, msg_queue=self._msg_queue)
 
     # ======================================================================
     #          Functions that implement functionality of the server
@@ -1744,13 +1774,6 @@ class RunEngineManager(Process):
         May be called to get some response from the Manager. Returns status of the manager.
         """
         return await self._status_handler(request)
-
-    def _status_publish(self):
-        """
-        Publish current status to the 0MQ 'info' socket.
-        """
-        if self._status:
-            push_info_to_msg_queue(key="status", msg=self._status, msg_queue=self._msg_queue)
 
     def _compute_re_state(self):
         return self._worker_state_info["re_state"] if self._worker_state_info else None
@@ -3724,6 +3747,9 @@ class RunEngineManager(Process):
 
         # Start heartbeat generator
         self._heartbeat_generator_task = asyncio.ensure_future(self._heartbeat_generator(), loop=self._loop)
+        self._status_publish_periodic_task = asyncio.ensure_future(
+            self._status_publish_periodic(), loop=self._loop
+        )
         self._worker_status_task = asyncio.ensure_future(self._periodic_worker_state_request(), loop=self._loop)
 
         self._plan_queue = PlanQueueOperations(
@@ -3858,6 +3884,9 @@ class RunEngineManager(Process):
         # Initialization is complete, enable the watchdog.
         await self._watchdog_enable()
 
+        # Update cached status the first time. The manager starts publishing status.
+        await self._status_update()
+
         while True:
             #  Wait for next request from client
             msg_in = await self._zmq_receive()
@@ -3888,6 +3917,7 @@ class RunEngineManager(Process):
 
                 await self._watchdog_manager_stopping()
                 self._heartbeat_generator_task.cancel()
+                self._status_publish_periodic_task.cancel()
                 self._comm_to_watchdog.stop()
                 self._comm_to_worker.stop()
                 await self._plan_queue.stop()
