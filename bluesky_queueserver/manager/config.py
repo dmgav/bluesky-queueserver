@@ -361,8 +361,6 @@ class Settings:
             value_config=self._get_value_from_config("redis_addr"),
             value_cli=self._args_existing("redis_addr"),
         )
-        if redis_addr.count(":") > 1:
-            raise ConfigError(f"Redis address is incorrectly formatted: {redis_addr}")
         self._settings["redis_addr"] = redis_addr
 
         redis_name_prefix = self._get_param(
