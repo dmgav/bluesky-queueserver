@@ -397,6 +397,9 @@ class RunEngineManager(Process):
         """
         return datetime.now().isoformat()
 
+    def _compute_re_state(self):
+        return self._worker_state_info["re_state"] if self._worker_state_info else None
+
     async def _status_update(self):
         """
         Compute the updated status
@@ -1885,9 +1888,6 @@ class RunEngineManager(Process):
         """
         return await self._status_handler(request)
 
-    def _compute_re_state(self):
-        return self._worker_state_info["re_state"] if self._worker_state_info else None
-
     async def _status_handler(self, request):
         """
         Returns status of the manager.
@@ -1895,7 +1895,7 @@ class RunEngineManager(Process):
         # Status is expected to be requested very often. Print the message only in the debug mode.
         logger.debug("Processing 'status' request ...")
 
-        await self._status_update()
+        # await self._status_update()
         return self._status
 
     async def _config_get_handler(self, request):
@@ -2074,6 +2074,8 @@ class RunEngineManager(Process):
         except Exception as ex:
             success = False
             msg = f"Error: {str(ex)}"
+
+        await self._status_update()
         return {"success": success, "msg": msg}
 
     async def _permissions_set_handler(self, request):
@@ -2106,6 +2108,7 @@ class RunEngineManager(Process):
             success = False
             msg = f"Error: {str(ex)}"
 
+        await self._status_update()
         return {"success": success, "msg": msg}
 
     async def _permissions_get_handler(self, request):
@@ -2402,6 +2405,7 @@ class RunEngineManager(Process):
 
         logger.info(self._generate_item_log_msg("Item added", success, item_type, item, qsize))
 
+        await self._status_update()
         rdict = {"success": success, "msg": msg, "qsize": qsize, "item": item}
         return rdict
 
@@ -2517,6 +2521,7 @@ class RunEngineManager(Process):
             pass
 
         logger.info(self._generate_item_log_msg("Batch of items added", success, None, None, qsize))
+        await self._status_update()
 
         # Note, that 'item_list' may be an empty list []
         rdict = {"success": success, "msg": msg, "qsize": qsize, "items": item_list, "results": results}
@@ -2567,6 +2572,7 @@ class RunEngineManager(Process):
             msg = f"Failed to add an item: {str(ex)}"
 
         logger.info(self._generate_item_log_msg("Item updated", success, item_type, item, qsize))
+        await self._status_update()
 
         rdict = {"success": success, "msg": msg, "qsize": qsize, "item": item}
 
@@ -2618,6 +2624,7 @@ class RunEngineManager(Process):
             success = False
             msg = f"Failed to remove an item: {str(ex)}"
 
+        await self._status_update()
         return {"success": success, "msg": msg, "item": item, "qsize": qsize}
 
     async def _queue_item_remove_batch_handler(self, request):
@@ -2651,6 +2658,7 @@ class RunEngineManager(Process):
             success = False
             msg = f"Failed to remove a batch of items: {str(ex)}"
 
+        await self._status_update()
         return {"success": success, "msg": msg, "items": items, "qsize": qsize}
 
     async def _queue_item_move_handler(self, request):
@@ -2682,6 +2690,7 @@ class RunEngineManager(Process):
             success = False
             msg = f"Failed to move the item: {str(ex)}"
 
+        await self._status_update()
         return {"success": success, "msg": msg, "item": item, "qsize": qsize}
 
     async def _queue_item_move_batch_handler(self, request):
@@ -2724,6 +2733,7 @@ class RunEngineManager(Process):
             success = False
             msg = f"Failed to move the batch of items: {str(ex)}"
 
+        await self._status_update()
         return {"success": success, "msg": msg, "qsize": qsize, "items": items}
 
     async def _queue_item_execute_handler(self, request):
@@ -2799,6 +2809,8 @@ class RunEngineManager(Process):
             success, msg = True, ""
         except Exception as ex:
             success, msg = False, f"Error: {ex}"
+
+        await self._status_update()
         return {"success": success, "msg": msg}
 
     async def _history_get_handler(self, request):
@@ -2848,6 +2860,7 @@ class RunEngineManager(Process):
         except Exception as ex:
             success, msg = False, f"Error: {ex}"
 
+        await self._status_update()
         return {"success": success, "msg": msg}
 
     async def _environment_open_handler(self, request):
@@ -3452,6 +3465,7 @@ class RunEngineManager(Process):
                     queue,
                     note,
                 )
+                await self._status_update()
             else:
                 raise ValueError(f"RE Manager was locked with a different key: \n{self._lock_info.to_str()}")
 
@@ -3518,6 +3532,7 @@ class RunEngineManager(Process):
                 lock_info = self._format_lock_info()
                 lock_info_uid = self._lock_info.uid
                 await self._save_lock_info_to_redis()
+                await self._status_update()
                 logger.info("RE Manager is successfully unlocked.")
             else:
                 lock_info = self._format_lock_info()
