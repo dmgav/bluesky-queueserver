@@ -25,7 +25,7 @@ def setup_loggers(*, log_level, name="bluesky_queueserver"):
         or (log_level == "DEBUG")
         or (isinstance(log_level, int) and (log_level <= 10))
     ):
-        log_stream_format = "[%(levelname)1.1s %(asctime)s.%(msecs)03d %(name)s %(module)s:%(lineno)d] %(message)s"
+        log_stream_format = "[%(levelname)1.1s %(asctime)s %(name)s %(module)s:%(lineno)d] %(message)s"
     else:
         log_stream_format = "[%(levelname)1.1s %(asctime)s %(name)s] %(message)s"
 
