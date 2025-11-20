@@ -1249,6 +1249,7 @@ def test_zmq_api_queue_item_execute_1(re_manager):  # noqa: F811
 
     # Check status immediately
     status, _ = zmq_request("status")
+    ttime.sleep(1) ##
     assert status["plan_queue_uid"] != plan_queue_uid1
     assert status["running_item_uid"] != running_item_uid1
 

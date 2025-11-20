@@ -406,9 +406,11 @@ class RunEngineManager(Process):
         Compute the updated status
         """
         # Computed/retrieved data
+        logger.info("==== 4 ====")  ##
         n_pending_items = await self._plan_queue.get_queue_size()
         running_item_info = await self._plan_queue.get_running_item_info()
         n_items_in_history = await self._plan_queue.get_history_size()
+        logger.info("==== 5 ====")  ##
 
         # Prepared output data
         response_msg = f"RE Manager v{qserver_version}"
@@ -1134,7 +1136,11 @@ class RunEngineManager(Process):
                     await self._status_update()
                     return success, err_msg
 
+                logger.info("==== 1 ====")  ##
                 new_plan = await self._plan_queue.process_next_item(item=single_item)
+                logger.info("==== 2 ====")  ##
+                await self._status_update()
+                logger.info("==== 3 ====")  ##
 
                 plan_name = new_plan["name"]
                 args = new_plan["args"] if "args" in new_plan else []
@@ -1157,7 +1163,11 @@ class RunEngineManager(Process):
                 # TODO: Decide if we really want to have metadata in the log
                 logger.info("Starting the plan:\n%s.", ppfl(plan_info))
 
+                print(f"================ WE ARE HERE 1a ===================")  ##
+
                 success, err_msg = await self._worker_command_run_plan(plan_info)
+                print(f"================ WE ARE HERE 1b ===================")  ##
+                print(f"success={success}, err_msg={err_msg}")  ##
                 if not success:
                     await self._plan_queue.set_processed_item_as_stopped(
                         exit_status="failed", run_uids=[], scan_ids=[], err_msg=err_msg, err_tb=""
@@ -1168,6 +1178,8 @@ class RunEngineManager(Process):
                 else:
                     self._manager_state = MState.EXECUTING_QUEUE
 
+                print(f"================ WE ARE HERE 1c ===================")  ##
+
             # The next items is INSTRUCTION
             elif next_item["item_type"] == "instruction":
                 logger.info("Executing instruction:\n%s.", ppfl(next_item))
@@ -1175,6 +1187,7 @@ class RunEngineManager(Process):
                 if next_item["name"] == "queue_stop":
                     await self._plan_queue.process_next_item(item=single_item)
                     self._manager_state = MState.EXECUTING_QUEUE
+                    await self._status_update()
                     asyncio.ensure_future(self._start_plan_task(stop_queue=True, autostart_disable=True))
                     success, err_msg = True, ""
                 else:
@@ -1185,6 +1198,7 @@ class RunEngineManager(Process):
                 success = False
                 err_msg = f"Unrecognized item type: '{next_item['item_type']}' (item {next_item})"
 
+        print(f"================ WE ARE HERE 2 ===================")  ##
         await self._status_update()
 
         return success, err_msg
