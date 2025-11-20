@@ -68,7 +68,7 @@ class PPrintForLogging:
         Formatted object ``msg``.
     """
 
-    def __init__(self, msg, *, max_list_size=10, max_dict_size=25, max_chars_in_str=1024):
+    def __init__(self, msg, *, max_list_size=10, max_dict_size=30, max_chars_in_str=1024):
         self._msg = msg
         self._max_list_size = max_list_size
         self._max_dict_size = max_dict_size

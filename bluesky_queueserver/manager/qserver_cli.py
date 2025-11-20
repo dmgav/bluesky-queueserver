@@ -1282,7 +1282,7 @@ def prepare_qserver_output(msg):
             d = msg[dict_name]
             for k in d.keys():
                 d[k] = "{...}"
-    return ppfl(msg, max_dict_size=30)
+    return ppfl(msg)
 
 
 def qserver():
