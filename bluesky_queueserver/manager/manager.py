@@ -350,6 +350,7 @@ class RunEngineManager(Process):
         self.__queue_autostart_enabled = enabled
         if self._plan_queue:
             await self._plan_queue.autostart_mode_save({"enabled": enabled})
+        await self._status_update()
 
     async def _heartbeat_generator(self):
         """
@@ -1214,6 +1215,8 @@ class RunEngineManager(Process):
         else:
             success, err_msg = await self._worker_command_pause_plan(option)
 
+        await self._status_update()
+
         if not success:
             logger.error("Failed to pause Run Engine: %s", err_msg)
 
@@ -1259,6 +1262,8 @@ class RunEngineManager(Process):
                 False,
                 "Environment does not exist. Can not pause Run Engine.",
             )
+
+        await self._status_update()
 
         return success, err_msg
 
@@ -1546,6 +1551,7 @@ class RunEngineManager(Process):
         except Exception as ex:
             success, msg = False, f"Failed to interrupt IPython kernel: {str(ex)}"
 
+        await self._status_update()
         return success, msg
 
     # ===============================================================================
