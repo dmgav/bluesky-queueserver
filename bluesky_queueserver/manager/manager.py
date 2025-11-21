@@ -407,71 +407,43 @@ class RunEngineManager(Process):
         """
         logger.debug("Status update ...")
 
-        n_pending_items = self._plan_queue.get_queue_size()
         running_item_info = self._plan_queue.get_running_item_info()
-        n_items_in_history = self._plan_queue.get_history_size()
-
-        response_msg = f"RE Manager v{qserver_version}"
-        status_uid = _generate_uid()  # Generate the new status UID each time the status is updated
-        timestamp = self._get_timestamp_iso8601()
-        items_in_queue = n_pending_items
-        items_in_history = n_items_in_history
-        running_item_uid = running_item_info["item_uid"] if running_item_info else None
-        manager_state = self._manager_state.value
-        queue_stop_pending = self.queue_stop_pending
-        queue_autostart_enabled = self.queue_autostart_enabled
-        worker_environment_exists = self._environment_exists
-        re_state = self._compute_re_state()
         ip_kernel_state = self._worker_state_info["ip_kernel_state"] if self._worker_state_info else None
         ip_kernel_captured = self._worker_state_info["ip_kernel_captured"] if self._worker_state_info else None
         env_state = self._worker_state_info["environment_state"] if self._worker_state_info else "closed"
         background_tasks = self._worker_state_info["background_tasks_num"] if self._worker_state_info else 0
-        deferred_pause_pending = self._re_pause_pending
-        run_list_uid = self._re_run_list_uid
-        plan_queue_uid = self._plan_queue.plan_queue_uid
-        plan_history_uid = self._plan_queue.plan_history_uid
-        devices_existing_uid = self._existing_devices_uid
-        plans_existing_uid = self._existing_plans_uid
-        devices_allowed_uid = self._allowed_devices_uid
-        plans_allowed_uid = self._allowed_plans_uid
-        plan_queue_mode = self._plan_queue.plan_queue_mode
-        task_results_uid = self._task_results.task_results_uid
-        lock_info_uid = self._lock_info.uid
-        locked_environment = self._lock_info.environment
-        locked_queue = self._lock_info.queue
 
         # The status reference is replaced each time status is updated, i.e. stored reference should not be
-        #   used to access status. On the other hand the reference can be used to store the current status.
+        #   used to access status.
         self._status = {
-            "msg": response_msg,
-            "time": timestamp,
-            "items_in_queue": items_in_queue,
-            "items_in_history": items_in_history,
-            "running_item_uid": running_item_uid,
-            "manager_state": manager_state,
-            "queue_stop_pending": queue_stop_pending,
-            "queue_autostart_enabled": queue_autostart_enabled,
-            "worker_environment_exists": worker_environment_exists,
+            "msg": f"RE Manager v{qserver_version}",
+            "time": self._get_timestamp_iso8601(),
+            "items_in_queue": self._plan_queue.get_queue_size(),
+            "items_in_history": self._plan_queue.get_history_size(),
+            "running_item_uid": running_item_info["item_uid"] if running_item_info else None,
+            "manager_state": self._manager_state.value,
+            "queue_stop_pending": self.queue_stop_pending,
+            "queue_autostart_enabled": self.queue_autostart_enabled,
+            "worker_environment_exists": self._environment_exists,
             "worker_environment_state": env_state,  # State of the worker environment
             "worker_background_tasks": background_tasks,  # The number of background tasks
-            "re_state": re_state,  # State of Run Engine
+            "re_state": self._compute_re_state(),  # State of Run Engine
             "ip_kernel_state": ip_kernel_state,  # State of IPython kernel
             "ip_kernel_captured": ip_kernel_captured,
-            "pause_pending": deferred_pause_pending,  # True/False - Cleared once pause processed
-            # If Run List UID change, download the list of runs for the current plan.
-            # Run List UID is updated when the list is cleared as well.
-            "status_uid": status_uid,
-            "run_list_uid": run_list_uid,
-            "plan_queue_uid": plan_queue_uid,
-            "plan_history_uid": plan_history_uid,
-            "devices_existing_uid": devices_existing_uid,
-            "plans_existing_uid": plans_existing_uid,
-            "devices_allowed_uid": devices_allowed_uid,
-            "plans_allowed_uid": plans_allowed_uid,
-            "plan_queue_mode": plan_queue_mode,
-            "task_results_uid": task_results_uid,
-            "lock_info_uid": lock_info_uid,
-            "lock": {"environment": locked_environment, "queue": locked_queue},
+            "pause_pending": self._re_pause_pending,  # True/False - Cleared once pause processed
+            # The following UIDs change each time the respective data object is changed at the server
+            "status_uid": _generate_uid(),  # New UID each time status is updated
+            "run_list_uid": self._re_run_list_uid,
+            "plan_queue_uid": self._plan_queue.plan_queue_uid,
+            "plan_history_uid": self._plan_queue.plan_history_uid,
+            "devices_existing_uid": self._existing_devices_uid,
+            "plans_existing_uid": self._existing_plans_uid,
+            "devices_allowed_uid": self._allowed_devices_uid,
+            "plans_allowed_uid": self._allowed_plans_uid,
+            "plan_queue_mode": self._plan_queue.plan_queue_mode,
+            "task_results_uid": self._task_results.task_results_uid,
+            "lock_info_uid": self._lock_info.uid,
+            "lock": {"environment": self._lock_info.environment, "queue": self._lock_info.queue},
         }
 
         self._status_publish()  # Add the updated status to 'msg_queue'
