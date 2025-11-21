@@ -41,7 +41,7 @@ class PlanQueueOperations:
         await pq.add_item_to_queue(<plan3>)
 
         # Number of plans in the queue
-        qsize = await pq.get_queue_size()
+        qsize = pq.get_queue_size()
 
         # Read the queue (as a list)
         queue, _ = await pq.get_queue()
@@ -53,7 +53,7 @@ class PlanQueueOperations:
 
         # Again this only shows whether a plan was set as running. Expected to be True in
         #   this example.
-        is_running = await pq.is_item_running()
+        is_running = pq.is_item_running()
 
         # Assume that plan execution is completed, so move the plan to history
         #   This also clears the currently processed plan.
