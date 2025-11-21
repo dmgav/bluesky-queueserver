@@ -1529,8 +1529,8 @@ class PlanQueueOperations:
         See ``self.clear_history()`` method.
         """
         self._plan_history_uid = self.new_item_uid()
-        self._history_size = await self._get_history_size()
         await self._r_pool.delete(self._name_plan_history)
+        self._history_size = await self._get_history_size()
 
     async def clear_history(self):
         """
