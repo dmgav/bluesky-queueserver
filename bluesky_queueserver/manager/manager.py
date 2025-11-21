@@ -407,9 +407,9 @@ class RunEngineManager(Process):
         """
         # Computed/retrieved data
         logger.info("==== 4 ====")  ##
-        n_pending_items = await self._plan_queue.get_queue_size()
-        running_item_info = await self._plan_queue.get_running_item_info()
-        n_items_in_history = await self._plan_queue.get_history_size()
+        n_pending_items = self._plan_queue.get_queue_size()
+        running_item_info = self._plan_queue.get_running_item_info()
+        n_items_in_history = self._plan_queue.get_history_size()
         logger.info("==== 5 ====")  ##
 
         # Prepared output data
@@ -853,7 +853,7 @@ class RunEngineManager(Process):
 
             if plan_state in ("completed", "unknown") or continue_failed:
                 # Check if the plan was running in the 'immediate_execution' mode.
-                item = await self._plan_queue.get_running_item_info()
+                item = self._plan_queue.get_running_item_info()
                 immediate_execution = item.get("properties", {}).get("immediate_execution", False)
 
                 # Executed plan is removed from the queue only after it is successfully completed.
@@ -1065,7 +1065,7 @@ class RunEngineManager(Process):
                 await self._status_update()
 
                 item = self._plan_queue.set_new_item_uuid(item)
-                qsize = await self._plan_queue.get_queue_size()
+                qsize = self._plan_queue.get_queue_size()
 
                 asyncio.ensure_future(self._execute_background_task(self._start_plan_task(single_item=item)))
 
@@ -1091,7 +1091,7 @@ class RunEngineManager(Process):
 
         # Check if the queue should be stopped and stop the queue
         if not immediate_execution:
-            n_pending_plans = await self._plan_queue.get_queue_size()
+            n_pending_plans = self._plan_queue.get_queue_size()
             if n_pending_plans:
                 logger.info("Processing the next queue item: %d plans are left in the queue.", n_pending_plans)
             else:
@@ -1295,7 +1295,7 @@ class RunEngineManager(Process):
         """
         self._queue_autostart_event.clear()
         while True:
-            queue_size = await self._plan_queue.get_queue_size()
+            queue_size = self._plan_queue.get_queue_size()
             if not self.queue_autostart_enabled:
                 break
             if queue_size and self._manager_state == MState.IDLE and self._compute_re_state() is not None:
@@ -2536,7 +2536,7 @@ class RunEngineManager(Process):
             msg = f"Failed to add an item: {str(ex)}"
 
         try:
-            qsize = await self._plan_queue.get_queue_size()
+            qsize = self._plan_queue.get_queue_size()
         except Exception:
             pass
 
@@ -3887,7 +3887,7 @@ class RunEngineManager(Process):
                     #   the queue is not running.
                     self._re_pause_pending = re_deferred_pause_requested
                     # Plan is running. Check if it is the same plan as in redis.
-                    plan_stored = await self._plan_queue.get_running_item_info()
+                    plan_stored = self._plan_queue.get_running_item_info()
                     if "item_uid" in plan_stored:
                         item_uid_stored = plan_stored["item_uid"]
                         if re_state in ("paused", "pausing"):
