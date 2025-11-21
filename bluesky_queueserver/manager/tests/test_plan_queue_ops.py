@@ -94,6 +94,7 @@ def test_filter_item_parameters(item_in, item_out):
 def test_running_plan_info():
     """
     Basic test for the following methods:
+    `PlanQueueOperations._is_item_running()`
     `PlanQueueOperations.is_item_running()`
     `PlanQueueOperations.get_running_item_info()`
     `PlanQueueOperations.delete_pool_entries()`
@@ -102,22 +103,26 @@ def test_running_plan_info():
     async def testing():
         async with PQ() as pq:
             assert pq.get_running_item_info() == {}
-            assert await pq.is_item_running() is False
+            assert await pq._is_item_running() is False
+            assert pq.is_item_running() is False
 
             some_plan = {"some_key": "some_value"}
             await pq._set_running_item_info(some_plan)
             assert pq.get_running_item_info() == some_plan
 
-            assert await pq.is_item_running() is True
+            assert await pq._is_item_running() is True
+            assert pq.is_item_running() is True
 
             await pq._clear_running_item_info()
             assert pq.get_running_item_info() == {}
-            assert await pq.is_item_running() is False
+            assert await pq._is_item_running() is False
+            assert pq.is_item_running() is False
 
             await pq._set_running_item_info(some_plan)
             await pq.delete_pool_entries()
             assert pq.get_running_item_info() == {}
-            assert await pq.is_item_running() is False
+            assert await pq._is_item_running() is False
+            assert pq.is_item_running() is False
 
     asyncio.run(testing())
 
@@ -294,7 +299,8 @@ def test_verify_item(plan, f_kwargs, result, errmsg):
                 await pq.set_next_item_as_running()
 
                 # Verify that setup is correct
-                assert await pq.is_item_running() is True
+                assert await pq._is_item_running() is True
+                assert pq.is_item_running() is True
                 assert pq.get_queue_size() == 1
 
             await set_plans()
@@ -1809,10 +1815,12 @@ def test_process_next_item_1(func, loop_mode, immediate_execution):
 
             # Apply to empty queue
             assert pq.get_queue_size() == 0
-            assert await pq.is_item_running() is False
+            assert await pq._is_item_running() is False
+            assert pq.is_item_running() is False
             assert await pq.set_next_item_as_running() == {}
             assert pq.get_queue_size() == 0
-            assert await pq.is_item_running() is False
+            assert await pq._is_item_running() is False
+            assert pq.is_item_running() is False
 
             # Apply to a queue with several plans
             p1, _ = await pq.add_item_to_queue({"item_type": "plan", "name": "a"})
@@ -1883,10 +1891,12 @@ def test_process_next_item_2(loop_mode, immediate_execution):
 
             # Apply to empty queue
             assert pq.get_queue_size() == 0
-            assert await pq.is_item_running() is False
+            assert await pq._is_item_running() is False
+            assert pq.is_item_running() is False
             assert await pq.set_next_item_as_running() == {}
             assert pq.get_queue_size() == 0
-            assert await pq.is_item_running() is False
+            assert await pq._is_item_running() is False
+            assert pq.is_item_running() is False
 
             # Apply to a queue with several plans
             p0, _ = await pq.add_item_to_queue({"item_type": "instruction", "name": "a"})

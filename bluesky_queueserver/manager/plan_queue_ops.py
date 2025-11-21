@@ -524,21 +524,22 @@ class PlanQueueOperations:
 
     async def _is_item_running(self):
         """
-        See ``self.is_item_running()`` method.
+        Check if an item is set as running. True does not indicate that the plan is actually running.
+        Reads data from Redis.
         """
         return bool(await self._get_running_item_info())
 
-    async def is_item_running(self):
+    def is_item_running(self):
         """
         Check if an item is set as running. True does not indicate that the plan is actually running.
+        Result based on cached data.
 
         Returns
         -------
         boolean
             True - an item is set as running, False otherwise.
         """
-        async with self._lock:
-            return await self._is_item_running()
+        return bool(self._running_item_info)
 
     async def _get_running_item_info(self):
         """
