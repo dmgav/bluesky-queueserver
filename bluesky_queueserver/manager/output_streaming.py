@@ -232,7 +232,7 @@ class PublishZMQStreamOutput:
                 break
 
     def _publish(self, payload):
-        if self._console_output_on:
+        if self._console_output_on and payload["channel"] == "console":
             sys.__stdout__.write(payload["msg"])
             sys.__stdout__.flush()
 

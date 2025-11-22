@@ -14,6 +14,8 @@ from bluesky_queueserver.manager.output_streaming import (
     ReceiveConsoleOutputAsync,
     ReceiveSystemInfo,
     ReceiveSystemInfoAsync,
+    _ReceiveZMQStreamOutputAsync,
+    push_info_to_msg_queue,
     setup_console_output_redirection,
 )
 
@@ -218,7 +220,7 @@ def test_ReceiveConsoleOutput_1(
         assert len(rm_info.received_msgs) == 0
 
     captured = capfd.readouterr()
-    if console_output_on:
+    if console_output_on and channel == "console":
         for msg in msgs:
             assert msg in captured.out
     else:
@@ -322,7 +324,7 @@ def test_ReceiveConsoleOutputAsync_1(period, cb_type, zmq_encoding, channel):
             elif channel == "info":
                 msgs_received, msgs_received_empty = msgs_received_info, msgs_received_console
 
-            # Wait for all messages to be sent. It happens almost instantly when tests are run
+            # Wait for all messages to be received. It happens almost instantly when tests are run
             #   locally, but there could be delays when running on CI.
             for _ in range(10):  # 10 seconds should be sufficient in the worst case
                 await asyncio.sleep(1)
@@ -342,6 +344,7 @@ def test_ReceiveConsoleOutputAsync_1(period, cb_type, zmq_encoding, channel):
     asyncio.run(testing())
 
     pco.stop()
+    ttime.sleep(1)
 
 
 @pytest.mark.parametrize("zmq_encoding", ["json", "msgpack"])
@@ -394,6 +397,79 @@ def test_ReceiveConsoleOutputAsync_2(zmq_encoding):
         assert rm._socket_subscribed is False
 
     asyncio.run(testing_3())
+
+
+@pytest.mark.parametrize("zmq_encoding", ["json", "msgpack"])
+def test_push_info_to_msg_queue_1(zmq_encoding):
+    """
+    Test for ``push_info_to_msg_queue`` function. The test verifies that messages
+    are put to the queue and can be received over 0MQ with correct content.
+    """
+
+    zmq_port = 61224  # Arbitrary port
+    zmq_topic_console = "testing_topic_console"
+    zmq_topic_info = "testing_topic_info"
+
+    zmq_publish_addr = f"tcp://*:{zmq_port}"
+    zmq_subscribe_addr = f"tcp://localhost:{zmq_port}"
+
+    queue = multiprocessing.Queue()
+
+    pco = PublishZMQStreamOutput(
+        msg_queue=queue,
+        console_output_on=True,
+        zmq_publish_on=True,
+        zmq_publish_addr=zmq_publish_addr,
+        zmq_topic_console=zmq_topic_console,
+        zmq_topic_info=zmq_topic_info,
+        encoding=zmq_encoding,
+    )
+
+    pco.start()
+
+    rm = _ReceiveZMQStreamOutputAsync(
+        zmq_subscribe_addr=zmq_subscribe_addr, zmq_topic=zmq_topic_info, encoding=zmq_encoding, timeout=1000
+    )
+    ttime.sleep(1)  # Important when executed on CI
+
+    async def testing():
+
+        msgs_received = []
+
+        def cb_func(msg):
+            msgs_received.append(msg)
+
+        rm.set_callback(cb=cb_func)
+        rm.start()
+
+        values_to_send = [{"a": 1}, [1, 2, 3], "simple string", 12345]
+        for value in values_to_send:
+            push_info_to_msg_queue(key="test_key", msg=value, msg_queue=queue)
+
+        await asyncio.sleep(1)
+        rm.stop()
+
+        # Wait for all messages to be received. It happens almost instantly when tests are run
+        #   locally, but there could be delays when running on CI.
+        for _ in range(10):  # 10 seconds should be sufficient in the worst case
+            await asyncio.sleep(1)
+            if len(msgs_received) == len(values_to_send):
+                break
+
+        assert len(msgs_received) == len(values_to_send)
+        for n, msg in enumerate(msgs_received):
+            assert "time" in msg
+            assert isinstance(msg["time"], float)
+            assert "msg" in msg
+            assert msg["msg"] == {"test_key": values_to_send[n]}
+
+        # Push extra message to exit the loop
+        push_info_to_msg_queue(key="test_key", msg="stop", msg_queue=queue)
+
+    asyncio.run(testing())
+
+    pco.stop()
+    ttime.sleep(1)
 
 
 @pytest.mark.parametrize("zmq_encoding", ["json", "msgpack", None])
