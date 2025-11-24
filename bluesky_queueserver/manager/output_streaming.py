@@ -331,7 +331,7 @@ class _ReceiveZMQStreamOutput:
 
     def subscribe(self):
         """
-        Subscribe 0MQ socket to the console output topic. Once the socket is subscribed,
+        Subscribe 0MQ socket to the topic. Once the socket is subscribed,
         the published messages are cached by 0MQ and could be loaded with ``recv()`` method.
         The function does nothing if the socket is already subscribed.
         """
@@ -341,7 +341,7 @@ class _ReceiveZMQStreamOutput:
 
     def unsubscribe(self):
         """
-        Unsubscribe 0MQ socket from the console output topic. Once the socket is unsubscribed,
+        Unsubscribe 0MQ socket from the topic. Once the socket is unsubscribed,
         all published messages are discarded.
         """
         if self._socket and self._socket_subscribed:
@@ -425,6 +425,10 @@ class ReceiveSystemInfo(_ReceiveZMQStreamOutput):
             zmq_topic=zmq_topic,
             timeout=timeout,
         )
+
+
+ReceiveConsoleOutput.__doc__ += _ReceiveZMQStreamOutput.__doc__
+ReceiveSystemInfo.__doc__ += _ReceiveZMQStreamOutput.__doc__
 
 
 class _ReceiveZMQStreamOutputAsync:
@@ -550,7 +554,7 @@ class _ReceiveZMQStreamOutputAsync:
 
     def subscribe(self):
         """
-        Subscribe 0MQ socket to the console output topic. Once the socket is subscribed,
+        Subscribe 0MQ socket to the topic. Once the socket is subscribed,
         the published messages are cached by 0MQ and could be loaded with ``recv()`` method.
         The function does nothing if the socket is already subscribed.
         """
@@ -560,7 +564,7 @@ class _ReceiveZMQStreamOutputAsync:
 
     def unsubscribe(self):
         """
-        Unsubscribe 0MQ socket from the console output topic. Once the socket is unsubscribed,
+        Unsubscribe 0MQ socket from the topic. Once the socket is unsubscribed,
         all published messages are discarded.
         """
         if self._socket and self._socket_subscribed:
@@ -711,6 +715,10 @@ class ReceiveSystemInfoAsync(_ReceiveZMQStreamOutputAsync):
             zmq_topic=zmq_topic,
             timeout=timeout,
         )
+
+
+ReceiveConsoleOutputAsync.__doc__ += _ReceiveZMQStreamOutputAsync.__doc__
+ReceiveSystemInfoAsync.__doc__ += _ReceiveZMQStreamOutputAsync.__doc__
 
 
 def qserver_console_monitor_cli():
