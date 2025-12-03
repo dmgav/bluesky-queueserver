@@ -15,7 +15,7 @@ from .config import Settings, profile_name_to_startup_dir, save_settings_to_file
 from .logging_setup import setup_loggers
 from .manager import RunEngineManager
 from .output_streaming import (
-    PublishConsoleOutput,
+    PublishZMQStreamOutput,
     default_zmq_info_address_for_server,
     setup_console_output_redirection,
 )
@@ -689,7 +689,7 @@ def start_manager():
     # Optionally save settings to a YAML file (used for testing)
     save_settings_to_file(settings)
 
-    stream_publisher = PublishConsoleOutput(
+    stream_publisher = PublishZMQStreamOutput(
         msg_queue=msg_queue,
         console_output_on=settings.print_console_output,
         zmq_publish_on=settings.zmq_publish_console,

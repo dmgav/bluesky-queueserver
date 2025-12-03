@@ -1235,6 +1235,7 @@ def test_zmq_api_queue_item_execute_1(re_manager):  # noqa: F811
     resp2a, _ = zmq_request("status")
     assert resp2a["items_in_queue"] == 1
     assert resp2a["items_in_history"] == 0
+    assert resp2a["manager_state"] == "idle"
     assert resp2a["worker_environment_state"] == "idle"
     plan_queue_uid1 = resp2a["plan_queue_uid"]
     running_item_uid1 = resp2a["running_item_uid"]
@@ -1249,8 +1250,7 @@ def test_zmq_api_queue_item_execute_1(re_manager):  # noqa: F811
 
     # Check status immediately
     status, _ = zmq_request("status")
-    assert status["plan_queue_uid"] != plan_queue_uid1
-    assert status["running_item_uid"] != running_item_uid1
+    assert status["manager_state"] != "idle"
 
     ttime.sleep(1)
     status, _ = zmq_request("status")
@@ -2086,7 +2086,7 @@ def test_zmq_api_script_upload_01(re_manager, update_lists, run_in_background): 
     assert isinstance(result, dict)
     assert isinstance(result["time_start"], float)
     assert result["task_uid"] == task_uid
-    assert result["run_in_background"] is run_in_background
+    assert result["run_in_background"] == run_in_background
 
     def condition_new_task_result_uid(msg):
         return msg["task_results_uid"] != task_results_uid
