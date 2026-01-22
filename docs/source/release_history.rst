@@ -7,7 +7,7 @@ v0.0.24 (2026-01-21)
 ====================
 
 The code for collecting Manager status was refactored. Now the returned status is based on cached data (no
-communication with Redis) and status requests return quicker.
+communication with Redis) and the respective requests return quicker than in previous versions.
 
 Added
 -----
