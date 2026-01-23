@@ -15,7 +15,7 @@ from .config import Settings, profile_name_to_startup_dir, save_settings_to_file
 from .logging_setup import setup_loggers
 from .manager import RunEngineManager
 from .output_streaming import (
-    PublishConsoleOutput,
+    PublishZMQStreamOutput,
     default_zmq_info_address_for_server,
     setup_console_output_redirection,
 )
@@ -275,7 +275,6 @@ class AtTerm:
 
 
 def start_manager():
-
     s_enc = (
         "Encryption for ZeroMQ communication server may be enabled by setting the value of\n"
         "'QSERVER_ZMQ_PRIVATE_KEY_FOR_SERVER' environment variable to a valid private key\n"
@@ -324,6 +323,16 @@ def start_manager():
         type=str,
         default=None,
         help="The parameter is deprecated and will be removed in future releases. Use --zmq-control-addr instead.",
+    )
+    parser.add_argument(
+        "--zmq-encoding",
+        dest="zmq_encoding",
+        type=str,
+        default=None,
+        help="The encoding used for 0MQ communication. The encoding must match the encoding used by RE Manager. "
+        "The parameter value overrides the value set by QSERVER_ZMQ_ENCODING_FOR_SERVER environment variable. "
+        "The parameter sets encoding used by all 0MQ sockets. "
+        "The supported values: 'json' (default) or 'msgpack'.",
     )
 
     parser.add_argument(
@@ -445,7 +454,7 @@ def start_manager():
         dest="redis_addr",
         type=str,
         default="localhost",
-        help="The address of Redis server, e.g. 'localhost', '127.0.0.1', 'localhost:6379' "
+        help="The address of Redis server, e.g. 'localhost', '127.0.0.1', 'localhost:6379', 'localhost:6379/0'."
         "(default: %(default)s). ",
     )
 
@@ -457,39 +466,23 @@ def start_manager():
         help="The prefix for the names of Redis keys used by RE Manager (default: %(default)s). ",
     )
 
-    parser.add_argument("--kafka-topic", dest="kafka_topic", type=str, help="The kafka topic to publish to.")
-    parser.add_argument(
-        "--kafka-server",
-        dest="kafka_server",
-        type=str,
-        help="Bootstrap server to connect (default: %(default)s).",
-        default="127.0.0.1:9092",
-    )
-
-    parser.add_argument(
-        "--zmq-data-proxy-addr",
-        dest="zmq_data_proxy_addr",
-        type=str,
-        help="The address of ZMQ proxy used to publish data. If the parameter is specified, RE is "
-        "subscribed to 'bluesky.callbacks.zmq.Publisher' and documents are published via 0MQ proxy. "
-        "0MQ Proxy (see Bluesky 0MQ documentation) should be started before plans are executed. "
-        "The address should be in the form '127.0.0.1:5567' or 'localhost:5567'. The address is passed "
-        "to 'bluesky.callbacks.zmq.Publisher'. It is recommended to use Kafka instead of 0MQ proxy in "
-        "production data acquisition systems and use Kafka instead.",
-    )
-
     parser.add_argument(
         "--keep-re",
         dest="keep_re",
         action="store_true",
-        help="Keep RE created in profile collection. If the flag is set, RE must be "
-        "created in the profile collection for the plans to run. RE will also "
-        "keep all its subscriptions. Also must be subscribed to the Data Broker "
-        "inside the profile collection, since '--databroker-config' argument "
-        "is ignored.",
+        help="The parameter is deprecated. The value is ignored by the Queue Server. Run Engine instance\n"
+        "must always be defined and configured in the startup code. The parameter will be removed\n"
+        "in future releases.",
     )
 
-    parser.add_argument(
+    group_ip_kernel = parser.add_argument_group(
+        "Configure IPython Kernel",
+        "The parameters for configuring IPython kernel used by RE Worker. The IPython kernel is\n"
+        "created by RE Worker only if '--use-ipython-kernel' is set to 'ON'. Otherwise,\n"
+        "the parameters are ignored.",
+    )
+
+    group_ip_kernel.add_argument(
         "--use-ipython-kernel",
         dest="use_ipython_kernel",
         type=str,
@@ -498,7 +491,7 @@ def start_manager():
         help="Run the Run Engine worker in IPython kernel (default: %(default)s).",
     )
 
-    parser.add_argument(
+    group_ip_kernel.add_argument(
         "--ipython-dir",
         dest="ipython_dir",
         type=str,
@@ -506,7 +499,7 @@ def start_manager():
         "variable. The parameter is ignored if IPython kernel is not used.",
     )
 
-    parser.add_argument(
+    group_ip_kernel.add_argument(
         "--ipython-matplotlib",
         dest="ipython_matplotlib",
         type=str,
@@ -515,7 +508,7 @@ def start_manager():
         "The parameter is ignored if the worker is running pure Python (--use-ipython-kernel is OFF).",
     )
 
-    parser.add_argument(
+    group_ip_kernel.add_argument(
         "--ipython-kernel-ip",
         dest="ipython_kernel_ip",
         type=str,
@@ -528,19 +521,78 @@ def start_manager():
         "IPython. Default: %(default)s.",
     )
 
-    parser.add_argument(
-        "--use-persistent-metadata",
-        dest="use_persistent_metadata",
-        action="store_true",
-        help="Use msgpack-based persistent storage for scan metadata. Currently this "
-        "is the preferred method to keep continuously incremented sequence of "
-        "Run IDs between restarts of RE.",
-    )
-    parser.add_argument(
-        "--databroker-config",
-        dest="databroker_config",
+    group_ip_kernel.add_argument(
+        "--ipython-connection-file",
+        dest="ipython_connection_file",
         type=str,
-        help="Name of the Data Broker configuration file.",
+        default=None,
+        help="Name of the connection file used by IPython kernel. If the file name is specified, the kernel "
+        "attempts to load connection parameters from the file. If the file does not exist, the kernel creates "
+        "the new file. If the file name is specified, the kernel will use identical connection parameters "
+        "each time the environment is reopened and the connected clients (e.g. Jupyter Console) are automatically "
+        "resuming connection. If the connection file name is not specified, then the kernel creates a new file "
+        "each time the environment is opened and connected clients need to be reconnected. "
+        "The parameter can be also set using QSERVER_IPYTHON_KERNEL_CONNECTION_FILE environment variable.",
+    )
+
+    group_ip_kernel.add_argument(
+        "--ipython-connection-dir",
+        dest="ipython_connection_dir",
+        type=str,
+        default=None,
+        help="Name of the directory where IPython kernel is looking for connection files. The default "
+        "location of the connection files may found by running 'jupyter --runtime-dir'."
+        "The parameter can be also set using QSERVER_IPYTHON_KERNEL_CONNECTION_DIR environment variable",
+    )
+
+    group_ip_kernel.add_argument(
+        "--ipython-shell-port",
+        dest="ipython_shell_port",
+        type=str,
+        default=None,
+        help="The address of the IPython kernel shell port, e.g. 60000. The port is selected randomly."
+        "if not specified. The parameter can be also set using QSERVER_IPYTHON_KERNEL_SHELL_PORT "
+        "environment variable.",
+    )
+
+    group_ip_kernel.add_argument(
+        "--ipython-iopub-port",
+        dest="ipython_iopub_port",
+        type=str,
+        default=None,
+        help="The address of the IPython kernel iopub port, e.g. 60001. The port is selected randomly."
+        "if not specified. The parameter can be also set using QSERVER_IPYTHON_KERNEL_IOPUB_PORT "
+        "environment variable.",
+    )
+
+    group_ip_kernel.add_argument(
+        "--ipython-stdin-port",
+        dest="ipython_stdin_port",
+        type=str,
+        default=None,
+        help="The address of the IPython kernel stdin port, e.g. 60002. The port is selected randomly."
+        "if not specified. The parameter can be also set using QSERVER_IPYTHON_KERNEL_STDIN_PORT "
+        "environment variable.",
+    )
+
+    group_ip_kernel.add_argument(
+        "--ipython-hb-port",
+        dest="ipython_hb_port",
+        type=str,
+        default=None,
+        help="The address of the IPython kernel hb port, e.g. 60003. The port is selected randomly."
+        "if not specified. The parameter can be also set using QSERVER_IPYTHON_KERNEL_HB_PORT "
+        "environment variable.",
+    )
+
+    group_ip_kernel.add_argument(
+        "--ipython-control-port",
+        dest="ipython_control_port",
+        type=str,
+        default=None,
+        help="The address of the IPython kernel control port, e.g. 60004. The port is selected randomly."
+        "if not specified. The parameter can be also set using QSERVER_IPYTHON_KERNEL_CONTROL_PORT "
+        "environment variable.",
     )
 
     group_console_output = parser.add_argument_group(
@@ -637,11 +689,12 @@ def start_manager():
     # Optionally save settings to a YAML file (used for testing)
     save_settings_to_file(settings)
 
-    stream_publisher = PublishConsoleOutput(
+    stream_publisher = PublishZMQStreamOutput(
         msg_queue=msg_queue,
         console_output_on=settings.print_console_output,
         zmq_publish_on=settings.zmq_publish_console,
         zmq_publish_addr=settings.zmq_info_addr,
+        encoding=settings.zmq_encoding,
     )
 
     if settings.zmq_publish_console:
@@ -654,13 +707,6 @@ def start_manager():
 
     config_worker = {}
     config_manager = {}
-    if settings.kafka_topic is not None:
-        config_worker["kafka"] = {}
-        config_worker["kafka"]["topic"] = settings.kafka_topic
-        config_worker["kafka"]["bootstrap"] = settings.kafka_server
-
-    if settings.zmq_data_proxy_addr is not None:
-        config_worker["zmq_data_proxy_addr"] = settings.zmq_data_proxy_addr
 
     startup_profile = settings.startup_profile
     startup_dir = settings.startup_dir
@@ -730,14 +776,8 @@ def start_manager():
             "Acceptable values: 'localhost', 'auto' or a string representing an IP address"
         )
 
-    config_worker["keep_re"] = settings.keep_re
     config_worker["device_max_depth"] = settings.device_max_depth
     config_worker["use_ipython_kernel"] = settings.use_ipython_kernel
-    config_worker["use_persistent_metadata"] = settings.use_persistent_metadata
-
-    config_worker["databroker"] = {}
-    if settings.databroker_config:
-        config_worker["databroker"]["config"] = settings.databroker_config
 
     config_worker["startup_profile"] = startup_profile
     config_worker["startup_dir"] = startup_dir
@@ -746,6 +786,13 @@ def start_manager():
     config_worker["ipython_dir"] = ipython_dir
     config_worker["ipython_kernel_ip"] = ipython_kernel_ip
     config_worker["ipython_matplotlib"] = settings.ipython_matplotlib
+    config_worker["ipython_connection_file"] = settings.ipython_connection_file
+    config_worker["ipython_connection_dir"] = settings.ipython_connection_dir
+    config_worker["ipython_shell_port"] = settings.ipython_shell_port
+    config_worker["ipython_iopub_port"] = settings.ipython_iopub_port
+    config_worker["ipython_stdin_port"] = settings.ipython_stdin_port
+    config_worker["ipython_hb_port"] = settings.ipython_hb_port
+    config_worker["ipython_control_port"] = settings.ipython_control_port
     config_worker["ignore_invalid_plans"] = settings.ignore_invalid_plans
 
     existing_pd_path = settings.existing_plans_and_devices_path
@@ -780,51 +827,6 @@ def start_manager():
             user_group_pd_path,
         )
 
-    # default_existing_pd_fln = "existing_plans_and_devices.yaml"
-    # if settings.existing_plans_and_devices_path:
-    #     existing_pd_path = os.path.expanduser(settings.existing_plans_and_devices_path)
-    #     if not os.path.isabs(existing_pd_path) and startup_dir:
-    #         existing_pd_path = os.path.join(startup_dir, existing_pd_path)
-    #     if not existing_pd_path.endswith(".yaml"):
-    #         existing_pd_path = os.path.join(existing_pd_path, default_existing_pd_fln)
-    # else:
-    #     existing_pd_path = os.path.join(startup_dir, default_existing_pd_fln)
-    # # The file may not exist, but the directory MUST exist
-    # pd_dir = os.path.dirname(existing_pd_path) or "."
-    # if not os.path.isdir(os.path.dirname(existing_pd_path)):
-    #     logger.error(
-    #         "The directory for list of plans and devices ('%s')does not exist. "
-    #         "Create the directory manually and restart RE Manager.",
-    #         pd_dir,
-    #     )
-    #     ttime.sleep(0.01)
-    #     return 1
-    # if not os.path.isfile(existing_pd_path):
-    #     logger.warning(
-    #         "The file with the list of allowed plans and devices ('%s') does not exist. "
-    #         "The manager will be started with empty list. The list will be populated after "
-    #         "RE worker environment is opened the first time.",
-    #         existing_pd_path,
-    #     )
-
-    # default_user_group_pd_fln = "user_group_permissions.yaml"
-    # if settings.user_group_permissions_path:
-    #     user_group_pd_path = os.path.expanduser(settings.user_group_permissions_path)
-    #     if not os.path.isabs(user_group_pd_path) and startup_dir:
-    #         user_group_pd_path = os.path.join(startup_dir, user_group_pd_path)
-    #     if not user_group_pd_path.endswith(".yaml"):
-    #         user_group_pd_path = os.path.join(user_group_pd_path, default_user_group_pd_fln)
-    # else:
-    #     user_group_pd_path = os.path.join(startup_dir, default_user_group_pd_fln)
-    # if not os.path.isfile(user_group_pd_path):
-    #     logger.error(
-    #         "The file with user permissions was not found at "
-    #         "'%s'. User groups are not defined. USERS WILL NOT BE ABLE TO SUBMIT PLANS OR "
-    #         "EXECUTE ANY OTHER OPERATIONS THAT REQUIRE PERMISSIONS.",
-    #         user_group_pd_path,
-    #     )
-    #     user_group_pd_path = None
-
     config_worker["existing_plans_and_devices_path"] = existing_pd_path
     config_manager["existing_plans_and_devices_path"] = existing_pd_path
     config_manager["user_group_permissions_path"] = user_group_pd_path
@@ -834,6 +836,7 @@ def start_manager():
 
     config_manager["zmq_addr"] = settings.zmq_control_addr
     config_manager["zmq_private_key"] = settings.zmq_private_key
+    config_manager["zmq_encoding"] = settings.zmq_encoding
 
     config_manager["redis_addr"] = settings.redis_addr
     config_manager["redis_name_prefix"] = settings.redis_name_prefix

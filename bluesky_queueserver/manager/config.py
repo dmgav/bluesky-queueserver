@@ -18,8 +18,9 @@ from pathlib import Path
 import jsonschema
 import yaml
 
-from .comms import default_zmq_control_address_for_server, validate_zmq_key
+from .comms import default_zmq_control_address_for_server, supported_zmq_encodings, validate_zmq_key
 from .config_schemas.loading import ConfigError, load_schema_from_yml
+from .logging_setup import setup_loggers
 from .output_streaming import default_zmq_info_address_for_server
 from .profile_ops import get_default_startup_dir, get_default_startup_profile
 from .utils import to_boolean
@@ -182,6 +183,7 @@ _key_mapping = {
     "zmq_control_addr": "network/zmq_control_addr",
     "zmq_private_key": "network/zmq_private_key",
     "zmq_info_addr": "network/zmq_info_addr",
+    "zmq_encoding": "network/zmq_encoding",
     "zmq_publish_console": "network/zmq_publish_console",
     "redis_addr": "network/redis_addr",
     "redis_name_prefix": "network/redis_name_prefix",
@@ -198,16 +200,18 @@ _key_mapping = {
     "use_ipython_kernel": "worker/use_ipython_kernel",
     "ipython_kernel_ip": "worker/ipython_kernel_ip",
     "ipython_matplotlib": "worker/ipython_matplotlib",
+    "ipython_connection_file": "worker/ipython_connection_file",
+    "ipython_connection_dir": "worker/ipython_connection_dir",
+    "ipython_shell_port": "worker/ipython_shell_port",
+    "ipython_iopub_port": "worker/ipython_iopub_port",
+    "ipython_stdin_port": "worker/ipython_stdin_port",
+    "ipython_hb_port": "worker/ipython_hb_port",
+    "ipython_control_port": "worker/ipython_control_port",
     "print_console_output": "operation/print_console_output",
     "console_logging_level": "operation/console_logging_level",
     "update_existing_plans_devices": "operation/update_existing_plans_and_devices",
     "user_group_permissions_reload": "operation/user_group_permissions_reload",
     "emergency_lock_key": "operation/emergency_lock_key",
-    "use_persistent_metadata": "run_engine/use_persistent_metadata",
-    "kafka_server": "run_engine/kafka_server",
-    "kafka_topic": "run_engine/kafka_topic",
-    "zmq_data_proxy_addr": "run_engine/zmq_data_proxy_addr",
-    "databroker_config": "run_engine/databroker_config",
 }
 
 
@@ -318,6 +322,11 @@ class Settings:
         config_path = config_path or os.environ.get("QSERVER_CONFIG", None)
         self._config = parse_configs(config_path) if config_path else {}
 
+        # Configure logger using logging level passed as part of config
+        log_level = self._get_console_logging_level()
+        logging.basicConfig(level=max(logging.WARNING, log_level))
+        setup_loggers(log_level=log_level)
+
         self._settings["zmq_control_addr"] = self._get_zmq_control_addr()
         self._settings["zmq_private_key"] = self._get_zmq_private_key()
 
@@ -327,6 +336,19 @@ class Settings:
             value_config=self._get_value_from_config("zmq_info_addr"),
             value_cli=self._args_existing("zmq_info_addr") or self._args_existing("zmq_publish_console_addr"),
         )
+
+        zmq_encoding = self._get_param(
+            value_default="json",
+            value_ev=os.environ.get("QSERVER_ZMQ_ENCODING_FOR_SERVER", None),
+            value_config=self._get_value_from_config("zmq_encoding"),
+            value_cli=self._args_existing("zmq_encoding"),
+        )
+        zmq_encoding = zmq_encoding.lower()
+        if zmq_encoding.lower() not in supported_zmq_encodings():
+            raise ConfigError(
+                f"0MQ encoding {zmq_encoding!r} is not supported. Supported values: {supported_zmq_encodings()}."
+            )
+        self._settings["zmq_encoding"] = zmq_encoding
 
         self._settings["zmq_publish_console"] = self._get_param_boolean(
             value_default=args.zmq_publish_console,
@@ -339,8 +361,6 @@ class Settings:
             value_config=self._get_value_from_config("redis_addr"),
             value_cli=self._args_existing("redis_addr"),
         )
-        if redis_addr.count(":") > 1:
-            raise ConfigError(f"Redis address is incorrectly formatted: {redis_addr}")
         self._settings["redis_addr"] = redis_addr
 
         redis_name_prefix = self._get_param(
@@ -352,11 +372,11 @@ class Settings:
             raise ConfigError(f"Redis name prefix must be a string: {redis_name_prefix!r}")
         self._settings["redis_name_prefix"] = redis_name_prefix
 
-        self._settings["keep_re"] = self._get_param_boolean(
-            value_default=args.keep_re,
-            value_config=self._get_value_from_config("keep_re"),
-            value_cli=self._args_existing("keep_re"),
-        )
+        # Print warnings if deprecated parameter is used
+        if self._args_existing("keep_re"):
+            logger.warning("The CLI parameter '--keep-re' is deprecated and will be removed in future releases.")
+        if self._get_value_from_config("keep_re") is not None:
+            logger.warning("The config parameter 'keep_re' is deprecated and will be removed in future releases.")
 
         device_max_depth = self._get_param(
             value_default=self._args.device_max_depth,
@@ -395,6 +415,76 @@ class Settings:
             value_default=args.ipython_matplotlib,
             value_config=self._get_value_from_config("ipython_matplotlib"),
             value_cli=self._args_existing("ipython_matplotlib"),
+        )
+
+        self._settings["ipython_connection_file"] = self._get_param(
+            value_default=args.ipython_connection_file,
+            value_ev=os.environ.get("QSERVER_IPYTHON_KERNEL_CONNECTION_FILE", None),
+            value_config=self._get_value_from_config("ipython_connection_file"),
+            value_cli=self._args_existing("ipython_connection_file"),
+        )
+
+        self._settings["ipython_connection_dir"] = self._get_param(
+            value_default=args.ipython_connection_dir,
+            value_ev=os.environ.get("QSERVER_IPYTHON_KERNEL_CONNECTION_DIR", None),
+            value_config=self._get_value_from_config("ipython_connection_dir"),
+            value_cli=self._args_existing("ipython_connection_dir"),
+        )
+
+        self._settings["ipython_shell_port"] = self._get_param(
+            value_default=args.ipython_shell_port,
+            value_ev=os.environ.get("QSERVER_IPYTHON_KERNEL_SHELL_PORT", None),
+            value_config=self._get_value_from_config("ipython_shell_port"),
+            value_cli=self._args_existing("ipython_shell_port"),
+        )
+
+        self._settings["ipython_iopub_port"] = self._get_param(
+            value_default=args.ipython_iopub_port,
+            value_ev=os.environ.get("QSERVER_IPYTHON_KERNEL_IOPUB_PORT", None),
+            value_config=self._get_value_from_config("ipython_iopub_port"),
+            value_cli=self._args_existing("ipython_iopub_port"),
+        )
+
+        self._settings["ipython_stdin_port"] = self._get_param(
+            value_default=args.ipython_stdin_port,
+            value_ev=os.environ.get("QSERVER_IPYTHON_KERNEL_STDIN_PORT", None),
+            value_config=self._get_value_from_config("ipython_stdin_port"),
+            value_cli=self._args_existing("ipython_stdin_port"),
+        )
+
+        self._settings["ipython_hb_port"] = self._get_param(
+            value_default=args.ipython_hb_port,
+            value_ev=os.environ.get("QSERVER_IPYTHON_KERNEL_HB_PORT", None),
+            value_config=self._get_value_from_config("ipython_hb_port"),
+            value_cli=self._args_existing("ipython_hb_port"),
+        )
+
+        self._settings["ipython_control_port"] = self._get_param(
+            value_default=args.ipython_control_port,
+            value_ev=os.environ.get("QSERVER_IPYTHON_KERNEL_CONTROL_PORT", None),
+            value_config=self._get_value_from_config("ipython_control_port"),
+            value_cli=self._args_existing("ipython_control_port"),
+        )
+
+        def _check_port_value(port, port_name):
+            """
+            Convert port from string to int unless its value is None. Raise Config Error
+            if the conversion fails.
+            """
+            if port is not None:
+                try:
+                    port = int(port)
+                except ValueError:
+                    _ = port_name.upper()
+                    raise ConfigError(f"Incorrect value for IPython {_} port: {port!r} (must be 'int')")
+            return port
+
+        self._settings["ipython_shell_port"] = _check_port_value(self._settings["ipython_shell_port"], "shell")
+        self._settings["ipython_iopub_port"] = _check_port_value(self._settings["ipython_iopub_port"], "iopub")
+        self._settings["ipython_stdin_port"] = _check_port_value(self._settings["ipython_stdin_port"], "stdin")
+        self._settings["ipython_hb_port"] = _check_port_value(self._settings["ipython_hb_port"], "hb")
+        self._settings["ipython_control_port"] = _check_port_value(
+            self._settings["ipython_control_port"], "control"
         )
 
         existing_plans_and_devices_path = self._get_param(
@@ -470,36 +560,6 @@ class Settings:
         self._settings["emergency_lock_key"] = self._get_param(
             value_ev=os.environ.get("QSERVER_EMERGENCY_LOCK_KEY_FOR_SERVER", None),
             value_config=self._get_value_from_config("emergency_lock_key"),
-        )
-
-        self._settings["use_persistent_metadata"] = self._get_param_boolean(
-            value_default=args.use_persistent_metadata,
-            value_config=self._get_value_from_config("use_persistent_metadata"),
-            value_cli=self._args_existing("use_persistent_metadata"),
-        )
-
-        self._settings["kafka_server"] = self._get_param(
-            value_default=args.kafka_server,
-            value_config=self._get_value_from_config("kafka_server"),
-            value_cli=self._args_existing("kafka_server"),
-        )
-
-        self._settings["kafka_topic"] = self._get_param(
-            value_default=args.kafka_topic,
-            value_config=self._get_value_from_config("kafka_topic"),
-            value_cli=self._args_existing("kafka_topic"),
-        )
-
-        self._settings["zmq_data_proxy_addr"] = self._get_param(
-            value_default=args.zmq_data_proxy_addr,
-            value_config=self._get_value_from_config("zmq_data_proxy_addr"),
-            value_cli=self._args_existing("zmq_data_proxy_addr"),
-        )
-
-        self._settings["databroker_config"] = self._get_param(
-            value_default=args.databroker_config,
-            value_config=self._get_value_from_config("databroker_config"),
-            value_cli=self._args_existing("databroker_config"),
         )
 
     def __getattr__(self, attr):

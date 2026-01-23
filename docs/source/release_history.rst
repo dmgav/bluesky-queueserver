@@ -2,6 +2,104 @@
 Release History
 ===============
 
+
+v0.0.24 (2026-01-21)
+====================
+
+The code for collecting Manager status was refactored. Now the returned status is based on cached data (no
+communication with Redis) and the respective requests return quicker than in previous versions.
+
+Added
+-----
+
+- Additional fields in RE Manager status: ``time`` and ``status_uid``.
+
+- Implemented streaming of RE Manager status over ``info`` 0MQ socket.
+
+
+v0.0.23 (2025-10-31)
+====================
+
+Added
+-----
+
+- Support for children of Ophyd Async devices.
+
+- ``history_clear`` was extended to accept the optional ``size`` and ``item_uid``  parameters for trimming the history.
+
+- Extended options for ``qserver`` CLI tool to allow trimming the history.
+
+Fixed
+-----
+
+- The issue that caused restart of RE Manager due to EAGAIN 0MQ error caused by automated scans of 0MQ port.
+
+
+v0.0.22 (2025-05-18)
+====================
+
+Added
+-----
+
+- Support for ``bluesky.protocols.NamedMovable`` protocol.
+
+- Support for the new CLI parameters: ``--ipython-connection-dir``, ``--ipython-connection-file``,
+  ``--ipython-shell-port``, ``--ipython-iopub-port``, ``--ipython-stdin-port``, ``--ipython-hb-port``,
+  ``--ipython-control-port``.
+
+- Support for the new environment variables:   ``QSERVER_IPYTHON_KERNEL_CONNECTION_FILE``,
+  ``QSERVER_IPYTHON_KERNEL_CONNECTION_DIR``, ``QSERVER_IPYTHON_KERNEL_IOPUB_PORT``,
+  ``QSERVER_IPYTHON_KERNEL_HB_PORT``, ``QSERVER_IPYTHON_KERNEL_CONTROL_PORT``,
+  ``QSERVER_IPYTHON_KERNEL_SHELL_PORT``, ``QSERVER_IPYTHON_KERNEL_STDIN_PORT``.
+
+- Support for the new parameters in the ``worker`` section of RE Manager config file:
+  ``ipython_connection_file``, ``ipython_connection_dir``, ``ipython_shell_port``, ``ipython_iopub_port``,
+  ``ipython_stdin_port``, ``ipython_hb_port``, ``ipython_control_port``.
+
+- New parameter for setting 0MQ message encoding added to RE Manager and the clients:
+  ``--zmq-encoding`` CLI parameter, ``QSERVER_ZMQ_ENCODING_FOR_SERVER`` environment variable and
+  ``network/zmq_encoding`` config file parameter.
+
+Fixed
+-----
+
+- Fixed an issue with handling of ``collections.abc.Iterable`` plan parameter type.
+
+Changed
+-------
+
+- The built-in feature that allowed instantiation and configuring Run Engine was removed.
+  Now Run Engine must be instantiated and configured in the startup code.
+
+- The following CLI parameters were removed: ``--kafka-topic``, ``--kafka-server``,
+  ``--zmq-data-proxy-addr``, ``--use-persistent-metadata`` and ``--databroker-config``.
+
+- RE Manager accepts ``--keep-re`` CLI parameter. The value of the parameter is ignored.
+  RE Manager always work as if the option is enabled. Deprecation message is printed.
+
+- The ``run-engine`` section is removed from the config file (``use_persistent_metadata``,
+  ``kafka_server``, ``kafka_topic``, ``zmq_data_proxy_addr``, ``databroker_config``). The server
+  accept ``startup/keep_re`` parameter. The parameter value is ignored, deprecation message is printed.
+
+- The following packages are removed from dependencies: ``bluesky-kafka``, ``databroker``,
+  ``event_model``, ``msgpack``, ``msgpack_numpy``.
+
+- Now RE Manager can successfully load startup code, which does not create an instance of Run Engine
+  (``environment_open`` operation would fail in the past). In this case, RE Manager returns status
+  parameter ``re_state: None`` and attempts to start the queue or individual plan fail with appropriate
+  error messages. Clients are still able to execute scripts or functions in the environment. Run Engine
+  may be instantiated and configured (e.g. by uploading a script) before any plans are executed.
+
+
+v0.0.21 (2024-09-29)
+====================
+
+Fixed
+-----
+
+- Bluesky builtin plans that use the ``@plan`` decorator are now correctly identified by queueserver.
+
+
 v0.0.20 (2024-07-25)
 ====================
 

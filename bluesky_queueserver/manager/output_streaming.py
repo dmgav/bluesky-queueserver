@@ -9,13 +9,15 @@ import sys
 import threading
 import time as ttime
 
+import msgpack
 import zmq
 
 import bluesky_queueserver
 
+from .comms import ZMQEncoding, process_zmq_encoding_name
+
 logger = logging.getLogger(__name__)
 qserver_version = bluesky_queueserver.__version__
-
 
 default_zmq_info_address_for_server = "tcp://*:60625"
 default_zmq_info_address = "tcp://localhost:60625"
@@ -44,7 +46,7 @@ class ConsoleOutputStream(io.TextIOBase):
         """
         s = str(s)
 
-        msg = {"time": ttime.time(), "msg": s}
+        msg = {"channel": "console", "time": ttime.time(), "msg": s}
         self._msg_queue.put(msg)
         return len(s)
 
@@ -89,10 +91,35 @@ def setup_console_output_redirection(msg_queue):
             pass
 
 
+def push_info_to_msg_queue(*, key, msg, msg_queue):
+    """
+    Format the message and put it into the message queue. The message is published to
+    the ``info`` socket in the ``"info"`` channel.
+
+    Parameters
+    ----------
+    key : str
+        The key used for the message. The message is formatted as a dictionary:
+        ``{"channel": "info", "time": ttime.time(), "msg": {key: msg}}``.
+        The key is used to identify the information in the message. E.g. ``"status"``.
+    msg : dict
+        The message is a dictionary with useful information (actual payload).
+    msg_queue : multiprocessing.Queue
+        Reference to the queue used for collecting messages.
+
+    Returns
+    -------
+    None
+    """
+    msg = {"channel": "info", "time": ttime.time(), "msg": {key: msg}}
+    msg_queue.put(msg)
+
+
 _default_zmq_console_topic = "QS_Console"
+_default_zmq_info_topic = "QS_Info"
 
 
-class PublishConsoleOutput:
+class PublishZMQStreamOutput:
     """
     The class that is publishing the collected console output messages to 0MQ socket.
     The queue is expected to be filled with messages in the format
@@ -113,8 +140,12 @@ class PublishConsoleOutput:
     zmq_publish_addr : str, None
         Address of 0MQ PUB socket for the publishing server. If ``None``, then
         the default address ``tcp://*:60625`` is used.
-    zmq_topic : str
-        Name of the 0MQ topic where the messages are published.
+    encoding : str or ZMQEncoding
+        Encoding of used for 0MQ messages. Supported values: "json" or "msgpack".
+    zmq_topic_console : str
+        Name of the 0MQ topic where the console messages are published.
+    zmq_topic_info : str
+        Name of the 0MQ topic where the system information messages are published.
     name : str
         Name of the thread where the messages are published.
     """
@@ -126,7 +157,9 @@ class PublishConsoleOutput:
         console_output_on=True,
         zmq_publish_on=True,
         zmq_publish_addr=None,
-        zmq_topic=_default_zmq_console_topic,
+        encoding="json",
+        zmq_topic_console=_default_zmq_console_topic,
+        zmq_topic_info=_default_zmq_info_topic,
         name="RE Console Output Publisher",
     ):
         self._thread_running = False  # Set True to exit the thread
@@ -137,10 +170,13 @@ class PublishConsoleOutput:
         self._console_output_on = console_output_on
         self._zmq_publish_on = zmq_publish_on
 
+        self._encoding = process_zmq_encoding_name(encoding)
+
         zmq_publish_addr = zmq_publish_addr or default_zmq_info_address_for_server
 
         self._zmq_publish_addr = zmq_publish_addr
-        self._zmq_topic = zmq_topic
+        self._zmq_topic_console = zmq_topic_console
+        self._zmq_topic_info = zmq_topic_info
 
         self._socket = None
         if self._zmq_publish_on:
@@ -196,17 +232,28 @@ class PublishConsoleOutput:
                 break
 
     def _publish(self, payload):
-        if self._console_output_on:
+        channel = payload["channel"]
+        if self._console_output_on and channel == "console":
             sys.__stdout__.write(payload["msg"])
             sys.__stdout__.flush()
 
         if self._zmq_publish_on and self._socket:
-            topic = self._zmq_topic
-            payload_json = json.dumps(payload)
-            self._socket.send_multipart([topic.encode("ascii"), payload_json.encode("utf8")])
+            if channel == "console":
+                topic = self._zmq_topic_console
+            elif channel == "info":
+                topic = self._zmq_topic_info
+            else:
+                logger.error("Failed to publish the message: unsupported 0MQ channel %s.")
+            payload = {k: payload[k] for k in ("time", "msg")}
+            if self._encoding == ZMQEncoding.JSON:
+                payload_json = json.dumps(payload)
+                self._socket.send_multipart([topic.encode("ascii"), payload_json.encode("utf8")])
+            else:
+                payload_pickle = msgpack.packb(payload)
+                self._socket.send_multipart([topic.encode("ascii"), payload_pickle])
 
 
-class ReceiveConsoleOutput:
+class _ReceiveZMQStreamOutput:
     """
     The class allows to subscribe to published 0MQ messages and read the messages one by
     one as they arrive. Subscription is performed using the remote 0MQ address and topic.
@@ -219,6 +266,9 @@ class ReceiveConsoleOutput:
     The ``subscribe()`` and ``unsubscribe()`` methods allow to explicitly subscribe and
     unsubscribe the socket to the topic. The messages published while the socket is unsubscribed
     are discarded. First call to ``recv()`` method automatically subscribes the socket.
+
+    The following code is an example of using the ``ReceiveConsoleOutput`` subclass,
+    which is configured to receive console output:
 
     .. code-block:: python
 
@@ -248,14 +298,18 @@ class ReceiveConsoleOutput:
     zmq_subscribe_addr : str or None
         Address of ZMQ server (PUB socket). If None, then the default address is
         ``tcp://localhost:60625`` is used.
-    zmq_topic : str
+    encoding : str or ZMQEncoding
+        Encoding of used for 0MQ messages. Supported values: "json" or "msgpack".
+    zmq_topic_console : str
         0MQ topic for console output. Only messages from this topic are going to be received.
+    zmq_topic_info : str
+        0MQ topic for info output. Only messages from this topic are going to be received.
     timeout : int, float or None
         Timeout for the receive operation in milliseconds. If `None`, then wait
         for the message indefinitely.
     """
 
-    def __init__(self, *, zmq_subscribe_addr=None, zmq_topic=_default_zmq_console_topic, timeout=1000):
+    def __init__(self, *, zmq_subscribe_addr, encoding, zmq_topic, timeout):
         self._timeout = timeout  # Timeout for 'recv' operation (ms)
 
         zmq_subscribe_addr = zmq_subscribe_addr or default_zmq_info_address
@@ -264,6 +318,8 @@ class ReceiveConsoleOutput:
         logger.info("Subscribing to 0MQ topic: '%s' ...", zmq_topic)
         self._zmq_subscribe_addr = zmq_subscribe_addr
         self._zmq_topic = zmq_topic
+
+        self._encoding = process_zmq_encoding_name(encoding)
 
         self._socket = None
         self._socket_subscribed = False
@@ -275,7 +331,7 @@ class ReceiveConsoleOutput:
 
     def subscribe(self):
         """
-        Subscribe 0MQ socket to the console output topic. Once the socket is subscribed,
+        Subscribe 0MQ socket to the topic. Once the socket is subscribed,
         the published messages are cached by 0MQ and could be loaded with ``recv()`` method.
         The function does nothing if the socket is already subscribed.
         """
@@ -285,7 +341,7 @@ class ReceiveConsoleOutput:
 
     def unsubscribe(self):
         """
-        Unsubscribe 0MQ socket from the console output topic. Once the socket is unsubscribed,
+        Unsubscribe 0MQ socket from the topic. Once the socket is unsubscribed,
         all published messages are discarded.
         """
         if self._socket and self._socket_subscribed:
@@ -326,19 +382,59 @@ class ReceiveConsoleOutput:
         if not self._socket.poll(timeout=timeout):
             raise TimeoutError("No message received during timeout period {timeout} ms")
 
-        topic, payload_json = self._socket.recv_multipart()
-        payload_json = payload_json.decode("utf8", "strict")
-        payload = json.loads(payload_json)
+        topic, payload_received = self._socket.recv_multipart()
+        if self._encoding == ZMQEncoding.JSON:
+            payload_json = payload_received.decode("utf8", "strict")
+            payload = json.loads(payload_json)
+        else:
+            payload = msgpack.unpackb(payload_received)
+
         return payload
 
     def __del__(self):
         self._socket.close()
 
 
-class ReceiveConsoleOutputAsync:
+class ReceiveConsoleOutput(_ReceiveZMQStreamOutput):
     """
-    Async version of ``ReceiveConsoleOutput`` class. There are two ways to use the class:
-    explicitly awaiting for the ``recv`` function (same as in ``ReceiveConsoleOutput``)
+    The class defaults are set to receive 0MQ messages with console output.
+    """
+
+    def __init__(
+        self, *, zmq_subscribe_addr=None, encoding="json", zmq_topic=_default_zmq_console_topic, timeout=1000
+    ):
+        super().__init__(
+            zmq_subscribe_addr=zmq_subscribe_addr,
+            encoding=encoding,
+            zmq_topic=zmq_topic,
+            timeout=timeout,
+        )
+
+
+class ReceiveSystemInfo(_ReceiveZMQStreamOutput):
+    """
+    The class defaults are set to receive 0MQ messages with system information.
+    """
+
+    def __init__(
+        self, *, zmq_subscribe_addr=None, encoding="json", zmq_topic=_default_zmq_info_topic, timeout=1000
+    ):
+        super().__init__(
+            zmq_subscribe_addr=zmq_subscribe_addr,
+            encoding=encoding,
+            zmq_topic=zmq_topic,
+            timeout=timeout,
+        )
+
+
+ReceiveConsoleOutput.__doc__ += _ReceiveZMQStreamOutput.__doc__
+ReceiveSystemInfo.__doc__ += _ReceiveZMQStreamOutput.__doc__
+
+
+class _ReceiveZMQStreamOutputAsync:
+    """
+    Async version of ``_ReceiveZMQStreamOutput`` class. There are two ways to use the class:
+    explicitly awaiting for the ``recv`` function (same as in ``_ReceiveZMQStreamOutput``)
     or setting up a callback function (plain function or coroutine).
 
     The ``subscribe()`` and ``unsubscribe()`` methods allow to explicitly subscribe and
@@ -346,7 +442,7 @@ class ReceiveConsoleOutputAsync:
     are discarded. Calls to ``recv()`` and ``start()`` methods always subscribe the socket,
     ``stop()`` method unsubscribes the socket unless called with ``unsubscribe=False``.
 
-    Explicitly awaiting ``recv`` function:
+    Explicitly awaiting ``recv`` function (``ReceiveConsoleOutputAsync`` is a subclass):
 
     .. code-block:: python
 
@@ -422,6 +518,8 @@ class ReceiveConsoleOutputAsync:
     zmq_subscribe_addr : str or None
         Address of ZMQ server (PUB socket). If None, then the default address is
         ``tcp://localhost:60625`` is used.
+    encoding : str or ZMQEncoding
+        Encoding of used for 0MQ messages. Supported values: "json" or "msgpack".
     zmq_topic : str
         0MQ topic for console output. Only messages from this topic are going to be received.
     timeout : int, float or None
@@ -429,7 +527,7 @@ class ReceiveConsoleOutputAsync:
         for the message indefinitely.
     """
 
-    def __init__(self, *, zmq_subscribe_addr=None, zmq_topic=_default_zmq_console_topic, timeout=1000):
+    def __init__(self, *, zmq_subscribe_addr, encoding, zmq_topic, timeout):
         self._timeout = timeout  # Timeout for 'recv' operation (ms)
 
         zmq_subscribe_addr = zmq_subscribe_addr or "tcp://localhost:60625"
@@ -443,6 +541,8 @@ class ReceiveConsoleOutputAsync:
         self._zmq_subscribe_addr = zmq_subscribe_addr
         self._zmq_topic = zmq_topic
 
+        self._encoding = process_zmq_encoding_name(encoding)
+
         self._socket = None
         self._socket_subscribed = False
         self._unsubscribe_when_stopping = False
@@ -454,7 +554,7 @@ class ReceiveConsoleOutputAsync:
 
     def subscribe(self):
         """
-        Subscribe 0MQ socket to the console output topic. Once the socket is subscribed,
+        Subscribe 0MQ socket to the topic. Once the socket is subscribed,
         the published messages are cached by 0MQ and could be loaded with ``recv()`` method.
         The function does nothing if the socket is already subscribed.
         """
@@ -464,7 +564,7 @@ class ReceiveConsoleOutputAsync:
 
     def unsubscribe(self):
         """
-        Unsubscribe 0MQ socket from the console output topic. Once the socket is unsubscribed,
+        Unsubscribe 0MQ socket from the topic. Once the socket is unsubscribed,
         all published messages are discarded.
         """
         if self._socket and self._socket_subscribed:
@@ -522,10 +622,13 @@ class ReceiveConsoleOutputAsync:
         if not await self._socket.poll(timeout=timeout):
             raise TimeoutError("No message received during timeout period {timeout} ms")
 
-        topic, payload_json = await self._socket.recv_multipart()
+        topic, payload_received = await self._socket.recv_multipart()
+        if self._encoding == ZMQEncoding.JSON:
+            payload_json = payload_received.decode("utf8", "strict")
+            payload = json.loads(payload_json)
+        else:
+            payload = msgpack.unpackb(payload_received)
 
-        payload_json = payload_json.decode("utf8", "strict")
-        payload = json.loads(payload_json)
         return payload
 
     async def _recv_next_message(self):
@@ -582,6 +685,42 @@ class ReceiveConsoleOutputAsync:
             self._socket.close()
 
 
+class ReceiveConsoleOutputAsync(_ReceiveZMQStreamOutputAsync):
+    """
+    The class defaults are set to receive 0MQ messages with console output.
+    """
+
+    def __init__(
+        self, *, zmq_subscribe_addr=None, encoding="json", zmq_topic=_default_zmq_console_topic, timeout=1000
+    ):
+        super().__init__(
+            zmq_subscribe_addr=zmq_subscribe_addr,
+            encoding=encoding,
+            zmq_topic=zmq_topic,
+            timeout=timeout,
+        )
+
+
+class ReceiveSystemInfoAsync(_ReceiveZMQStreamOutputAsync):
+    """
+    The class defaults are set to receive 0MQ messages with system information.
+    """
+
+    def __init__(
+        self, *, zmq_subscribe_addr=None, encoding="json", zmq_topic=_default_zmq_info_topic, timeout=1000
+    ):
+        super().__init__(
+            zmq_subscribe_addr=zmq_subscribe_addr,
+            encoding=encoding,
+            zmq_topic=zmq_topic,
+            timeout=timeout,
+        )
+
+
+ReceiveConsoleOutputAsync.__doc__ += _ReceiveZMQStreamOutputAsync.__doc__
+ReceiveSystemInfoAsync.__doc__ += _ReceiveZMQStreamOutputAsync.__doc__
+
+
 def qserver_console_monitor_cli():
     """
     CLI tool for remote monitoring of console output from RE Manager. The function is also
@@ -618,6 +757,16 @@ def qserver_console_monitor_cli():
         help="The parameter is deprecated and will be removed. Use --zmq-info-addr instead.",
     )
 
+    parser.add_argument(
+        "--zmq-encoding",
+        dest="zmq_encoding",
+        type=str,
+        default=None,
+        help="The encoding used for 0MQ communication. The encoding must match the encoding used by RE Manager. "
+        "The parameter value overrides the value set by QSERVER_ZMQ_ENCODING environment variable. "
+        "The supported values: 'json' (default) or 'msgpack'.",
+    )
+
     args = parser.parse_args()
 
     zmq_info_addr = args.zmq_info_addr
@@ -629,8 +778,12 @@ def qserver_console_monitor_cli():
     zmq_info_addr = zmq_info_addr or os.environ.get("QSERVER_ZMQ_INFO_ADDRESS", None)
     zmq_info_addr = zmq_info_addr or default_zmq_info_address
 
+    zmq_encoding = args.zmq_encoding
+    zmq_encoding = zmq_encoding or os.environ.get("QSERVER_ZMQ_ENCODING", None)
+    zmq_encoding = zmq_encoding or "json"
+
     try:
-        rco = ReceiveConsoleOutput(zmq_subscribe_addr=zmq_info_addr)
+        rco = ReceiveConsoleOutput(zmq_subscribe_addr=zmq_info_addr, encoding=zmq_encoding)
         rco.subscribe()
         while True:
             try:

@@ -41,7 +41,7 @@ class PlanQueueOperations:
         await pq.add_item_to_queue(<plan3>)
 
         # Number of plans in the queue
-        qsize = await pq.get_queue_size()
+        qsize = pq.get_queue_size()
 
         # Read the queue (as a list)
         queue, _ = await pq.get_queue()
@@ -53,7 +53,7 @@ class PlanQueueOperations:
 
         # Again this only shows whether a plan was set as running. Expected to be True in
         #   this example.
-        is_running = await pq.is_item_running()
+        is_running = pq.is_item_running()
 
         # Assume that plan execution is completed, so move the plan to history
         #   This also clears the currently processed plan.
@@ -115,6 +115,12 @@ class PlanQueueOperations:
         self._plan_queue_uid = self.new_item_uid()
         # Plan history UID is expected to change each time the history is changed.
         self._plan_history_uid = self.new_item_uid()
+
+        # The following variables are used to backup the respective values from Redis
+        #   for faster access
+        self._queue_size = 0
+        self._history_size = 0
+        self._running_item_info = None
 
         self._lock = None
 
@@ -257,7 +263,9 @@ class PlanQueueOperations:
             self._lock = asyncio.Lock()
             async with self._lock:
                 try:
-                    host = f"redis://{self._redis_host}"
+                    if "://" not in self._redis_host:
+                        host = f"redis://{self._redis_host}"
+                    logger.debug("Connecting to Redis host at'%s'", host)
                     self._r_pool = redis.asyncio.from_url(host, encoding="utf-8", decode_responses=True)
                     await self._r_pool.ping()
                 except Exception as ex:
@@ -272,6 +280,10 @@ class PlanQueueOperations:
                 await self._queue_clean()
                 await self._uid_dict_initialize()
                 await self._load_plan_queue_mode()
+
+                self._queue_size = await self._get_queue_size()
+                self._history_size = await self._get_history_size()
+                self._running_item_info = await self._get_running_item_info()
 
                 self._plan_queue_uid = self.new_item_uid()
                 self._plan_history_uid = self.new_item_uid()
@@ -307,6 +319,9 @@ class PlanQueueOperations:
         if item and not verify_item(item):
             await self._clear_running_item_info()
 
+        self._queue_size = await self._get_queue_size()
+        self._running_item_info = await self._get_running_item_info()
+
     async def _delete_pool_entries(self):
         """
         See ``self.delete_pool_entries()`` method.
@@ -319,6 +334,10 @@ class PlanQueueOperations:
 
         self._plan_queue_uid = self.new_item_uid()
         self._plan_history_uid = self.new_item_uid()
+
+        self._queue_size = await self._get_queue_size()
+        self._history_size = await self._get_history_size()
+        self._running_item_info = await self._get_running_item_info()
 
     async def delete_pool_entries(self):
         """
@@ -505,32 +524,33 @@ class PlanQueueOperations:
 
     async def _is_item_running(self):
         """
-        See ``self.is_item_running()`` method.
+        Check if an item is set as running. True does not indicate that the plan is actually running.
+        Reads data from Redis.
         """
         return bool(await self._get_running_item_info())
 
-    async def is_item_running(self):
+    def is_item_running(self):
         """
         Check if an item is set as running. True does not indicate that the plan is actually running.
+        Result based on cached data.
 
         Returns
         -------
         boolean
             True - an item is set as running, False otherwise.
         """
-        async with self._lock:
-            return await self._is_item_running()
+        return bool(self._running_item_info)
 
     async def _get_running_item_info(self):
         """
-        See ``self._get_running_item_info()`` method.
+        Read info on the currently running item (plan) loaded from Redis.
         """
         plan = await self._r_pool.get(self._name_running_plan)
         return json.loads(plan) if plan else {}
 
-    async def get_running_item_info(self):
+    def get_running_item_info(self):
         """
-        Read info on the currently running item (plan) from Redis.
+        Returns info on the currently running item (plan).
 
         Returns
         -------
@@ -538,8 +558,7 @@ class PlanQueueOperations:
             Dictionary representing currently running plan. Empty dictionary if
             no plan is currently running (key value is ``{}`` or the key does not exist).
         """
-        async with self._lock:
-            return await self._get_running_item_info()
+        return self._running_item_info
 
     async def _set_running_item_info(self, plan):
         """
@@ -551,23 +570,25 @@ class PlanQueueOperations:
             dictionary that contains plan parameters
         """
         await self._r_pool.set(self._name_running_plan, json.dumps(plan))
+        self._running_item_info = await self._get_running_item_info()
 
     async def _clear_running_item_info(self):
         """
         Clear info on the currently running item (plan) in Redis.
         """
         await self._set_running_item_info({})
+        self._running_item_info = await self._get_running_item_info()
 
     # -------------------------------------------------------------
     #                       Plan Queue
 
     async def _get_queue_size(self):
         """
-        See ``self.get_queue_size()`` method.
+        Read the queue size from Redis.
         """
         return await self._r_pool.llen(self._name_plan_queue)
 
-    async def get_queue_size(self):
+    def get_queue_size(self):
         """
         Get the number of plans in the queue.
 
@@ -576,8 +597,7 @@ class PlanQueueOperations:
         int
             The number of plans in the queue.
         """
-        async with self._lock:
-            return await self._get_queue_size()
+        return self._queue_size
 
     async def _get_queue(self):
         """
@@ -714,6 +734,7 @@ class PlanQueueOperations:
             No or multiple matching plans are removed and ``single=True``.
         """
         n_rem_items = await self._r_pool.lrem(self._name_plan_queue, 0, json.dumps(item))
+        self._queue_size = await self._get_queue_size()
         if (n_rem_items != 1) and single:
             raise RuntimeError(f"The number of removed items is {n_rem_items}. One item is expected.")
 
@@ -755,9 +776,8 @@ class PlanQueueOperations:
         if item:
             self._uid_dict_remove(item["item_uid"])
 
-        qsize = await self._get_queue_size()
-
-        return item, qsize
+        self._queue_size = await self._get_queue_size()
+        return item, self._queue_size
 
     async def pop_item_from_queue(self, *, pos=None, uid=None):
         """
@@ -823,8 +843,8 @@ class PlanQueueOperations:
             except Exception as ex:
                 logger.debug("Failed to remove item with UID '%s' from the queue: %s", uid, ex)
 
-        qsize = await self._get_queue_size()
-        return items, qsize
+        self._queue_size = await self._get_queue_size()
+        return items, self._queue_size
 
     async def pop_item_from_queue_batch(self, *, uids=None, ignore_missing=True):
         """
@@ -943,6 +963,7 @@ class PlanQueueOperations:
         else:
             raise ValueError(f"Parameter 'pos' has incorrect value: pos='{str(pos)}' (type={type(pos)})")
 
+        self._queue_size = qsize
         self._uid_dict_add(item)
         return item, qsize
 
@@ -1048,10 +1069,10 @@ class PlanQueueOperations:
             # Also do not return 'changed' items if adding the batch failed.
             items_added = items
 
-        qsize = await self._get_queue_size()
+        self._queue_size = await self._get_queue_size()
 
         # 'items_added' and 'results' ALWAYS have the same number of elements as 'items'
-        return items_added, results, qsize, success
+        return items_added, results, self._queue_size, success
 
     async def add_batch_to_queue(
         self, items, *, pos=None, before_uid=None, after_uid=None, filter_parameters=True
@@ -1142,9 +1163,9 @@ class PlanQueueOperations:
         self._uid_dict_add(item)
 
         # Read the actual size of the queue.
-        qsize = await self._get_queue_size()
+        self._queue_size = await self._get_queue_size()
 
-        return item, qsize
+        return item, self._queue_size
 
     async def replace_item(self, item, *, item_uid):
         """
@@ -1251,6 +1272,8 @@ class PlanQueueOperations:
         else:
             item = item_dest
             qsize = await self._get_queue_size()
+
+        self._queue_size = qsize
         return item, qsize
 
     async def move_item(self, *, pos=None, uid=None, pos_dest=None, before_uid=None, after_uid=None):
@@ -1359,8 +1382,8 @@ class PlanQueueOperations:
             last_item_uid = uid
             items_moved.append(item)
 
-        qsize = await self._get_queue_size()
-        return items_moved, qsize
+        self._queue_size = await self._get_queue_size()
+        return items_moved, self._queue_size
 
     async def move_batch(self, *, uids=None, pos_dest=None, before_uid=None, after_uid=None, reorder=False):
         """
@@ -1429,6 +1452,8 @@ class PlanQueueOperations:
         else:
             self._uid_dict_clear()
 
+        self._queue_size = await self._get_queue_size()
+
     async def clear_queue(self):
         """
         Remove all entries from the plan queue. Does not touch the running item (plan).
@@ -1456,16 +1481,16 @@ class PlanQueueOperations:
             The new size of the history.
         """
         self._plan_history_uid = self.new_item_uid()
-        history_size = await self._r_pool.rpush(self._name_plan_history, json.dumps(item))
-        return history_size
+        self._history_size = await self._r_pool.rpush(self._name_plan_history, json.dumps(item))
+        return self._history_size
 
     async def _get_history_size(self):
         """
-        See ``self.get_history_size()`` method.
+        Read the number of items in the plan history from Redis.
         """
         return await self._r_pool.llen(self._name_plan_history)
 
-    async def get_history_size(self):
+    def get_history_size(self):
         """
         Get the number of items in the plan history.
 
@@ -1474,8 +1499,7 @@ class PlanQueueOperations:
         int
             The number of plans in the history.
         """
-        async with self._lock:
-            return await self._get_history_size()
+        return self._history_size
 
     async def _get_history(self):
         """
@@ -1506,6 +1530,7 @@ class PlanQueueOperations:
         """
         self._plan_history_uid = self.new_item_uid()
         await self._r_pool.delete(self._name_plan_history)
+        self._history_size = await self._get_history_size()
 
     async def clear_history(self):
         """
@@ -1514,6 +1539,51 @@ class PlanQueueOperations:
         """
         async with self._lock:
             await self._clear_history()
+
+    async def _trim_history(self, *, new_size=None, item_uid=None):
+        """
+        See ``self.trim_history()`` method.
+        """
+        if new_size is None and item_uid is None:
+            raise ValueError("At least one of the parameters 'new_size' or 'item_uid' must be specified.")
+        elif new_size is not None and item_uid is not None:
+            raise ValueError("The parameters 'new_size' and 'item_uid' are mutually exclusive.")
+
+        update_uid = False
+        if new_size is not None:
+            history_size = await self._get_history_size()
+            if new_size < history_size:
+                new_size = max(min(new_size, history_size), 0)
+                n_delete = history_size - new_size
+                update_uid = True
+                await self._r_pool.ltrim(self._name_plan_history, n_delete, -1)
+        else:  # item_uid is not None
+            # The following code is not efficient if the history is huge, but it should work fine for now.
+            history, _ = await self._get_history()
+
+            n_delete = None
+            for i, item in enumerate(history):
+                if item["item_uid"] == item_uid:
+                    n_delete = i
+                    break
+
+            if n_delete is not None:
+                update_uid = True
+                await self._r_pool.ltrim(self._name_plan_history, n_delete + 1, -1)
+
+        if update_uid:
+            self._plan_history_uid = self.new_item_uid()
+
+        self._history_size = await self._get_history_size()
+
+    async def trim_history(self, *, new_size=None, item_uid=None):
+        """
+        Remove all entries from the plan queue older than the given index.
+        Does not touch the running item. The item (plan) may be pushed back
+        into the queue if it is stopped.
+        """
+        async with self._lock:
+            await self._trim_history(new_size=new_size, item_uid=item_uid)
 
     # ----------------------------------------------------------------------
     #          Standard item operations during queue execution
@@ -1564,6 +1634,9 @@ class PlanQueueOperations:
                 if loop_mode:
                     item_to_add = self.set_new_item_uuid(item)
                     await self._add_item_to_queue(item_to_add)
+
+        self._queue_size = await self._get_queue_size()
+        self._running_item_info = await self._get_running_item_info()
 
         return item_to_return
 
@@ -1631,6 +1704,9 @@ class PlanQueueOperations:
             raise
         except Exception:
             plan = {}
+
+        self._queue_size = await self._get_queue_size()
+        self._running_item_info = await self._get_running_item_info()
 
         return plan
 
@@ -1704,6 +1780,11 @@ class PlanQueueOperations:
             await self._add_to_history(item_cleaned)
         else:
             item_cleaned = {}
+
+        self._queue_size = await self._get_queue_size()
+        self._history_size = await self._get_history_size()
+        self._running_item_info = await self._get_running_item_info()
+
         return item_cleaned
 
     async def set_processed_item_as_completed(self, *, exit_status, run_uids, scan_ids, err_msg, err_tb):
@@ -1779,6 +1860,11 @@ class PlanQueueOperations:
             self._plan_queue_uid = self.new_item_uid()
         else:
             item_cleaned = {}
+
+        self._queue_size = await self._get_queue_size()
+        self._history_size = await self._get_history_size()
+        self._running_item_info = await self._get_running_item_info()
+
         return item_cleaned
 
     async def set_processed_item_as_stopped(self, *, exit_status, run_uids, scan_ids, err_msg, err_tb):

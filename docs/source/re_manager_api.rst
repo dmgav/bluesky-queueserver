@@ -192,11 +192,19 @@ Parameters    ---
 Returns       **msg**: *str*
                  application name and version, e.g. 'RE Manager v0.0.10'
 
+              **time**: *str*
+                 timestamp of the last status update. Time is formatted accoring to iso8601,
+                 e.g. '2025-11-24T15:25:54.956818'.
+
               **items_in_queue**: *int*
                  the number of items in the plan queue
 
               **items_in_history**: *int*
                  the number of items in the plan history
+
+              **status_uid**: *str*
+                 status UID is changed each time status is updated at the server. The UID can
+                 be used to detect changes in other status parameters.
 
               **running_item_uid**: *str* or *None*
                  item UID of the currently running plan or *None* if no plan is currently running.
@@ -263,7 +271,8 @@ Returns       **msg**: *str*
 
               **re_state**: *str* or *None*
                   current state of Bluesky Run Engine (see Blue Sky documentation) or *None* if
-                  RE Worker environment does not exist (or closed).
+                  RE Worker environment does not exist (or closed) or if the instance of Run Engine
+                  is not defined in the environment namespace.
 
               **worker_environment_state**: *str*
                   current state of the worker environment. Supported states: *'initializing'*,
@@ -656,11 +665,23 @@ Execution     Immediate: no follow-up requests are required.
 ============  =========================================================================================
 Method        **'history_clear'**
 ------------  -----------------------------------------------------------------------------------------
-Description   Clear the contents of the plan history.
-
-              *The request always succeeds*.
+Description   Clear the contents of the plan history. If the parameter **size** is specified, then
+              the history is trimmed to the desired size. If the parameter **item_uid** is specified,
+              then the item with matching UID and all older items are removed from the history.
+              The parameters **size** and **item_uid** are mutually exclusive.
 ------------  -----------------------------------------------------------------------------------------
-Parameters    **lock_key**: *str* (optional)
+Parameters    **size**: *int* or *None* (optional)
+                  The new size of the history. If the size is 0 or less, then the history is
+                  cleared. If the size is greater than or equal to size of the queue, then the queue is
+                  not modified and **plan_history_uid** remains unchanged. Otherwise the history is
+                  trimmed to the desired size.
+
+              **item_uid**: *str* or *None* (optional)
+                  If the history contains an item with **item_uid**, then the history is trimmed by
+                  removing this item and all older items. If the item with **item_uid** is not found
+                  then the history and **plan_history_uid** remain unchanged.
+
+              **lock_key**: *str* (optional)
                   Lock key. The API fails if **the queue** is locked and no valid key is submitted
                   with the request. See documentation on :ref:`method_lock` API for more details.
 ------------  -----------------------------------------------------------------------------------------

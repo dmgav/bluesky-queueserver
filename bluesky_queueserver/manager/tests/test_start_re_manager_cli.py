@@ -11,7 +11,6 @@ import yaml
 from bluesky_queueserver import gen_list_of_plans_and_devices
 from bluesky_queueserver.manager.config import default_existing_pd_fln, default_user_group_pd_fln
 
-from ..comms import zmq_single_request
 from .common import re_manager_cmd  # noqa: F401
 from .common import (
     _test_redis_name_prefix,
@@ -26,10 +25,13 @@ from .common import (
     copy_default_profile_collection,
     get_manager_status,
     set_qserver_zmq_address,
+    set_qserver_zmq_encoding,
     set_qserver_zmq_public_key,
     use_ipykernel_for_tests,
+    use_zmq_encoding_for_tests,
     wait_for_condition,
     wait_for_task_result,
+    zmq_request,
 )
 
 # Plans used in most of the tests: '_plan1' and '_plan2' are quickly executed '_plan3' runs for 5 seconds.
@@ -55,18 +57,18 @@ def test_start_re_manager_logging_1(re_manager_cmd, option):  # noqa: F811
     """
     re_manager_cmd([option])
 
-    resp1, _ = zmq_single_request("environment_open")
+    resp1, _ = zmq_request("environment_open")
     assert resp1["success"] is True
     assert resp1["msg"] == ""
 
     assert wait_for_condition(time=timeout_env_open, condition=condition_environment_created)
 
     # Attemtp to communicate with RE Manager
-    resp2, _ = zmq_single_request("status")
+    resp2, _ = zmq_request("status")
     assert resp2["items_in_queue"] == 0
     assert resp2["items_in_history"] == 0
 
-    resp3, _ = zmq_single_request("environment_close")
+    resp3, _ = zmq_request("environment_close")
     assert resp3["success"] is True
     assert resp3["msg"] == ""
 
@@ -103,27 +105,32 @@ def test_start_re_manager_console_output_1(re_manager_cmd, console_print, consol
         console_zmq = False
 
     # Start monitor (captures messages published to 0MQ)
+    encoding = use_zmq_encoding_for_tests()
+    params_mon = [f"--zmq-encoding={encoding}"] if encoding != "json" else []
     p_monitor = subprocess.Popen(
-        ["qserver-console-monitor"], universal_newlines=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE
+        ["qserver-console-monitor", *params_mon],
+        universal_newlines=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
     )
 
     re_manager = re_manager_cmd(params, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
-    resp1, _ = zmq_single_request("environment_open")
+    resp1, _ = zmq_request("environment_open")
     assert resp1["success"] is True
     assert resp1["msg"] == ""
 
     assert wait_for_condition(time=timeout_env_open, condition=condition_environment_created)
 
-    resp2, _ = zmq_single_request("queue_item_add", {"item": _plan1, "user": _user, "user_group": _user_group})
+    resp2, _ = zmq_request("queue_item_add", {"item": _plan1, "user": _user, "user_group": _user_group})
     assert resp2["success"] is True
 
-    resp3, _ = zmq_single_request("queue_start")
+    resp3, _ = zmq_request("queue_start")
     assert resp3["success"] is True
 
     assert wait_for_condition(time=10, condition=condition_queue_processing_finished)
 
-    resp3, _ = zmq_single_request("environment_close")
+    resp3, _ = zmq_request("environment_close")
     assert resp3["success"] is True
     assert resp3["msg"] == ""
 
@@ -205,16 +212,19 @@ def test_start_re_manager_console_output_2(monkeypatch, re_manager_cmd, test_mod
     re_manager_cmd(params_server)
 
     # Start monitor (captures messages published to 0MQ)
+    params_mon = [f"--zmq-info-addr={address_info_client}"]
+    if use_zmq_encoding_for_tests() != "json":
+        params_mon.append(f"--zmq-encoding={use_zmq_encoding_for_tests()}")
     p_monitor = subprocess.Popen(
-        ["qserver-console-monitor", f"--zmq-info-addr={address_info_client}"],
+        ["qserver-console-monitor", *params_mon],
         universal_newlines=True,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
     )
 
-    zmq_single_request("environment_open")
+    zmq_request("environment_open")
     assert wait_for_condition(time=timeout_env_open, condition=condition_environment_created)
-    zmq_single_request("environment_close")
+    zmq_request("environment_close")
     assert wait_for_condition(time=3, condition=condition_environment_closed)
 
     p_monitor.terminate()
@@ -255,7 +265,7 @@ def test_cli_update_existing_plans_devices_01(
     params = ["--startup-dir", pc_path, "--update-existing-plans-devices", update_existing_plans_devices]
     re_manager_cmd(params)
 
-    resp1, _ = zmq_single_request("status")
+    resp1, _ = zmq_request("status")
     devices_allowed_uid1 = resp1["devices_allowed_uid"]
     plans_allowed_uid1 = resp1["plans_allowed_uid"]
 
@@ -267,27 +277,27 @@ def test_cli_update_existing_plans_devices_01(
         if option in ("add_plan", "add_plan_device"):
             f.writelines("count50 = count\n")
 
-    resp2, _ = zmq_single_request("environment_open")
+    resp2, _ = zmq_request("environment_open")
     assert resp2["success"] is True
     assert resp2["msg"] == ""
 
     assert wait_for_condition(time=timeout_env_open, condition=condition_environment_created)
 
-    resp3, _ = zmq_single_request("environment_close")
+    resp3, _ = zmq_request("environment_close")
     assert resp3["success"] is True
     assert resp3["msg"] == ""
 
     assert wait_for_condition(time=3, condition=condition_environment_closed)
 
-    resp4, _ = zmq_single_request("status")
+    resp4, _ = zmq_request("status")
     devices_allowed_uid2 = resp4["devices_allowed_uid"]
     plans_allowed_uid2 = resp4["plans_allowed_uid"]
 
     def verify_allowed_lists(*, new_plan_added, new_device_added):
-        resp5a, _ = zmq_single_request("plans_allowed", params={"user_group": _user_group})
+        resp5a, _ = zmq_request("plans_allowed", params={"user_group": _user_group})
         assert resp5a["success"] is True, f"resp={resp5a}"
         plans_allowed = resp5a["plans_allowed"]
-        resp5b, _ = zmq_single_request("devices_allowed", params={"user_group": _user_group})
+        resp5b, _ = zmq_request("devices_allowed", params={"user_group": _user_group})
         assert resp5b["success"] is True, f"resp={resp5b}"
         devices_allowed = resp5b["devices_allowed"]
 
@@ -316,7 +326,7 @@ def test_cli_update_existing_plans_devices_01(
 
     # Reload the list of existing plans and devices from disk and make sure the new device/plan
     #   is loaded/not loaded depending on the update mode.
-    resp6, _ = zmq_single_request("permissions_reload", params={"restore_plans_devices": True})
+    resp6, _ = zmq_request("permissions_reload", params={"restore_plans_devices": True})
     assert resp6["success"] is True
 
     new_plan_added = new_plan_added and update_existing_plans_devices != "NEVER"
@@ -351,9 +361,7 @@ def test_cli_user_group_permissions_reload_01(
     """
     re = re_manager_cmd()
 
-    resp1, _ = zmq_single_request(
-        "permissions_set", params={"user_group_permissions": _permissions_dict_not_allow_count}
-    )
+    resp1, _ = zmq_request("permissions_set", params={"user_group_permissions": _permissions_dict_not_allow_count})
     assert resp1["success"] is True, pprint.pformat(resp1)
     assert resp1["msg"] == ""
 
@@ -369,7 +377,7 @@ def test_cli_user_group_permissions_reload_01(
     re.start_manager(params=params, cleanup=False)
     wait_for_condition(time=10, condition=condition_manager_idle)
 
-    resp2, _ = zmq_single_request("permissions_get")
+    resp2, _ = zmq_request("permissions_get")
     assert resp2["success"] is True
     user_group_permissions = resp2["user_group_permissions"]
 
@@ -383,7 +391,7 @@ def test_cli_user_group_permissions_reload_01(
         clear_redis_pool()
 
     # Attempt to reload permissions (from disk)
-    resp3, _ = zmq_single_request("permissions_reload")
+    resp3, _ = zmq_request("permissions_reload")
 
     if user_group_permissions_reload == "NEVER":
         assert resp3["success"] is False
@@ -391,7 +399,7 @@ def test_cli_user_group_permissions_reload_01(
     else:
         assert resp3["success"] is True
 
-    resp4, _ = zmq_single_request("permissions_get")
+    resp4, _ = zmq_request("permissions_get")
     assert resp4["success"] is True
     user_group_permissions = resp4["user_group_permissions"]
 
@@ -444,7 +452,7 @@ def test_cli_parameters_zmq_server_address_1(monkeypatch, re_manager_cmd, test_m
 
     re_manager_cmd(params_server)
 
-    status, msg = zmq_single_request("status", zmq_server_address=address_client)
+    status, msg = zmq_request("status", zmq_server_address=address_client)
     if success:
         assert msg == "", (status, msg)
         assert status["manager_state"] == "idle", (status, msg)
@@ -453,7 +461,7 @@ def test_cli_parameters_zmq_server_address_1(monkeypatch, re_manager_cmd, test_m
         assert status is None, (status, msg)
 
 
-def _get_expected_settings_default_1(tmpdir):
+def _get_expected_settings_default_1(_1, _2):
     use_ip_kernel = use_ipykernel_for_tests()
     username = getpass.getuser()
     if use_ip_kernel:
@@ -473,19 +481,22 @@ def _get_expected_settings_default_1(tmpdir):
 
     return {
         "console_logging_level": 10,
-        "databroker_config": None,
         "demo_mode": True,
         "emergency_lock_key": None,
         "existing_plans_and_devices_path": existing_plans_and_devices_path,
         "ignore_invalid_plans": False,
         "ipython_dir": ipython_dir,
-        "kafka_server": "127.0.0.1:9092",
-        "kafka_topic": None,
-        "keep_re": False,
         "device_max_depth": 0,
         "use_ipython_kernel": bool(use_ip_kernel),
         "ipython_kernel_ip": "localhost",
         "ipython_matplotlib": None,
+        "ipython_connection_dir": None,
+        "ipython_connection_file": None,
+        "ipython_control_port": None,
+        "ipython_hb_port": None,
+        "ipython_iopub_port": None,
+        "ipython_shell_port": None,
+        "ipython_stdin_port": None,
         "print_console_output": True,
         "redis_addr": "localhost",
         "redis_name_prefix": _test_redis_name_prefix,  # We use it for unit tests
@@ -494,11 +505,10 @@ def _get_expected_settings_default_1(tmpdir):
         "startup_profile": startup_profile,
         "startup_script": None,
         "update_existing_plans_devices": "ENVIRONMENT_OPEN",
-        "use_persistent_metadata": False,
         "user_group_permissions_path": user_group_permissions_path,
         "user_group_permissions_reload": "ON_STARTUP",
         "zmq_control_addr": "tcp://*:60615",
-        "zmq_data_proxy_addr": None,
+        "zmq_encoding": "json",
         "zmq_info_addr": "tcp://*:60625",
         "zmq_private_key": None,
         "zmq_publish_console": False,
@@ -509,10 +519,11 @@ _dir_2 = "test2"
 
 
 # matching public key: =E0[czQkp!!%0TL1LCJ5X[<wjYD[iV+p[yuaI0an
-def _get_config_file_2(file_dir):
+def _get_config_file_2(file_dir, ip_con_dir):
     s = """
 network:
   zmq_control_addr: tcp://*:60617
+  zmq_encoding: msgpack
   zmq_private_key: {0}
   zmq_info_addr: tcp://*:60627
   zmq_publish_console: true
@@ -522,6 +533,13 @@ worker:
   use_ipython_kernel: {4}
   ipython_kernel_ip: auto
   ipython_matplotlib: qt5
+  ipython_connection_dir: {5}
+  ipython_connection_file: test_connection_file
+  ipython_control_port: 60000
+  ipython_hb_port: 60001
+  ipython_iopub_port: 60002
+  ipython_shell_port: 60003
+  ipython_stdin_port: 60004
 startup:
   keep_re: false
   device_max_depth: 2
@@ -535,18 +553,14 @@ operation:
   update_existing_plans_and_devices: ALWAYS
   user_group_permissions_reload: ON_REQUEST
   emergency_lock_key: different_lock_key
-run_engine:
-  use_persistent_metadata: true
-  kafka_server: 127.0.0.1:9095
-  kafka_topic: different_topic_name
-  zmq_data_proxy_addr: tcp://localhost:5569
-  databroker_config: DIF
 """
     use_ip_kernel = "true" if use_ipykernel_for_tests() else "false"
-    return s.format("Ue=.po0aQ9.}<Xvrny+f{V04XMc6JZ9ufKf5aeFy", file_dir, file_dir, file_dir, use_ip_kernel)
+    return s.format(
+        "Ue=.po0aQ9.}<Xvrny+f{V04XMc6JZ9ufKf5aeFy", file_dir, file_dir, file_dir, use_ip_kernel, ip_con_dir
+    )
 
 
-def _get_expected_settings_config_2(file_dir):
+def _get_expected_settings_config_2(file_dir, ip_con_dir):
     use_ip_kernel = use_ipykernel_for_tests()
     if use_ip_kernel:
         startup_dir = None
@@ -566,19 +580,22 @@ def _get_expected_settings_config_2(file_dir):
 
     return {
         "console_logging_level": 10,
-        "databroker_config": "DIF",
         "demo_mode": False,
         "emergency_lock_key": "different_lock_key",
         "existing_plans_and_devices_path": existing_plans_and_devices_path,
         "ipython_dir": ipython_dir,
-        "kafka_server": "127.0.0.1:9095",
-        "kafka_topic": "different_topic_name",
-        "keep_re": False,
         "device_max_depth": 2,
         "ignore_invalid_plans": True,
         "use_ipython_kernel": bool(use_ip_kernel),
         "ipython_kernel_ip": "auto",
         "ipython_matplotlib": "qt5",
+        "ipython_connection_dir": ip_con_dir,
+        "ipython_connection_file": "test_connection_file",
+        "ipython_control_port": 60000,
+        "ipython_hb_port": 60001,
+        "ipython_iopub_port": 60002,
+        "ipython_shell_port": 60003,
+        "ipython_stdin_port": 60004,
         "print_console_output": True,
         "redis_addr": "localhost:6379",
         "redis_name_prefix": "qs_unit_tests2",  # Specific for this test
@@ -587,11 +604,10 @@ def _get_expected_settings_config_2(file_dir):
         "startup_profile": startup_profile,
         "startup_script": None,
         "update_existing_plans_devices": "ALWAYS",
-        "use_persistent_metadata": True,
         "user_group_permissions_path": user_group_permissions_path,
         "user_group_permissions_reload": "ON_REQUEST",
         "zmq_control_addr": "tcp://*:60617",
-        "zmq_data_proxy_addr": "tcp://localhost:5569",
+        "zmq_encoding": "msgpack",
         "zmq_info_addr": "tcp://*:60627",
         "zmq_private_key": "Ue=.po0aQ9.}<Xvrny+f{V04XMc6JZ9ufKf5aeFy",
         "zmq_publish_console": True,
@@ -605,6 +621,7 @@ def _get_cli_params_3(file_dir):
     use_ip_kernel = "ON" if use_ipykernel_for_tests() else "OFF"
     return [
         "--zmq-control-addr=tcp://*:60619",
+        "--zmq-encoding=json",
         f"--startup-dir={file_dir}",
         f"--existing-plans-devices={file_dir}",
         "--update-existing-plans-devices=NEVER",
@@ -612,23 +629,26 @@ def _get_cli_params_3(file_dir):
         "--user-group-permissions-reload=NEVER",
         "--redis-addr=localhost:6379",
         "--redis-name-prefix=qs_unit_tests3",
-        "--kafka-topic=yet_another_topic",
-        "--kafka-server=127.0.0.1:9099",
         "--keep-re",
         "--device-max-depth=5",
         "--ignore-invalid-plans=ON",
         f"--use-ipython-kernel={use_ip_kernel}",
         "--ipython-kernel-ip=127.0.0.1",
         "--ipython-matplotlib=qt",
-        "--zmq-data-proxy-addr=tcp://localhost:5571",
-        "--databroker-config=NEW",
+        "--ipython-connection-dir=test_connection_dir",
+        "--ipython-connection-file=test_connection_file",
+        "--ipython-control-port=60100",
+        "--ipython-hb-port=60101",
+        "--ipython-iopub-port=60102",
+        "--ipython-shell-port=60103",
+        "--ipython-stdin-port=60104",
         "--zmq-info-addr=tcp://*:60629",
         "--zmq-publish-console=OFF",
         "--console-output=OFF",
     ]
 
 
-def _get_expected_settings_params_3(file_dir):
+def _get_expected_settings_params_3(file_dir, _):
     use_ip_kernel = use_ipykernel_for_tests()
     if use_ip_kernel:
         startup_dir = None
@@ -648,19 +668,22 @@ def _get_expected_settings_params_3(file_dir):
 
     return {
         "console_logging_level": 10,
-        "databroker_config": "NEW",
         "demo_mode": False,
         "emergency_lock_key": "different_lock_key",
         "existing_plans_and_devices_path": existing_plans_and_devices_path,
         "ipython_dir": ipython_dir,
-        "kafka_server": "127.0.0.1:9099",
-        "kafka_topic": "yet_another_topic",
-        "keep_re": True,
         "device_max_depth": 5,
         "ignore_invalid_plans": True,
         "use_ipython_kernel": bool(use_ip_kernel),
         "ipython_kernel_ip": "127.0.0.1",
         "ipython_matplotlib": "qt",
+        "ipython_connection_dir": "test_connection_dir",
+        "ipython_connection_file": "test_connection_file",
+        "ipython_control_port": 60100,
+        "ipython_hb_port": 60101,
+        "ipython_iopub_port": 60102,
+        "ipython_shell_port": 60103,
+        "ipython_stdin_port": 60104,
         "print_console_output": False,
         "redis_addr": "localhost:6379",
         "redis_name_prefix": "qs_unit_tests3",  # Specific for this test
@@ -669,11 +692,10 @@ def _get_expected_settings_params_3(file_dir):
         "startup_profile": startup_profile,
         "startup_script": None,
         "update_existing_plans_devices": "NEVER",
-        "use_persistent_metadata": True,
         "user_group_permissions_path": user_group_permissions_path,
         "user_group_permissions_reload": "NEVER",
         "zmq_control_addr": "tcp://*:60619",
-        "zmq_data_proxy_addr": "tcp://localhost:5571",
+        "zmq_encoding": "json",
         "zmq_info_addr": "tcp://*:60629",
         "zmq_private_key": "Ue=.po0aQ9.}<Xvrny+f{V04XMc6JZ9ufKf5aeFy",
         "zmq_publish_console": False,
@@ -685,19 +707,26 @@ def _get_empty_params_1(file_dir):
 
 
 # fmt: off
-@pytest.mark.parametrize("pass_config, dest_dir, get_cli_params, get_expected_settings", [
+@pytest.mark.parametrize("pass_config, dest_dir, get_cli_params, get_expected_settings, zmq_encoding", [
     # Starting RE Manager using default parameters (--verbose CLI parameter is always set)
-    (None, None, _get_empty_params_1, _get_expected_settings_default_1),
+    (None, None, _get_empty_params_1, _get_expected_settings_default_1, "json"),
     # Pass config file (use EV to pass the path)
-    ("name_as_ev", _dir_2, _get_empty_params_1, _get_expected_settings_config_2),
+    ("name_as_ev", _dir_2, _get_empty_params_1, _get_expected_settings_config_2, "msgpack"),
     # Pass config file (use --config CLI parameter to pass the path)
-    ("name_as_param1", _dir_2, _get_empty_params_1, _get_expected_settings_config_2),
+    ("name_as_param1", _dir_2, _get_empty_params_1, _get_expected_settings_config_2, "msgpack"),
     # Pass the config file and a set of CLI parameters that override the config parameters
-    ("name_as_param2", _dir_3, _get_cli_params_3, _get_expected_settings_params_3),
+    ("name_as_param2", _dir_3, _get_cli_params_3, _get_expected_settings_params_3, "json"),
 ])
 # fmt: on
 def test_manager_with_config_file_01(
-    tmpdir, monkeypatch, re_manager_cmd, pass_config, dest_dir, get_cli_params, get_expected_settings  # noqa: F811
+    tmpdir,
+    monkeypatch,
+    re_manager_cmd,  # noqa: F811
+    pass_config,
+    dest_dir,
+    get_cli_params,
+    get_expected_settings,
+    zmq_encoding,
 ):
     """
     Basic test for parameter handling functionality. Test if the parameters are successfully
@@ -718,12 +747,17 @@ def test_manager_with_config_file_01(
         set_qserver_zmq_public_key(monkeypatch, server_public_key="=E0[czQkp!!%0TL1LCJ5X[<wjYD[iV+p[yuaI0an")
         set_qserver_zmq_address(monkeypatch, zmq_server_address="tcp://localhost:60617")
         with open(config_path, "w") as f:
-            f.writelines(_get_config_file_2(file_dir))
+            f.writelines(_get_config_file_2(file_dir, tmpdir))
 
     cli_params = get_cli_params(file_dir)
     if cli_params:
         set_qserver_zmq_public_key(monkeypatch, server_public_key="=E0[czQkp!!%0TL1LCJ5X[<wjYD[iV+p[yuaI0an")
         set_qserver_zmq_address(monkeypatch, zmq_server_address="tcp://localhost:60619")
+    else:
+        # 0MQ encoding '0' - the entry is removed, so no value is passed to RE Manager
+        cli_params.append("--zmq-encoding=0")
+
+    set_qserver_zmq_encoding(monkeypatch, encoding=zmq_encoding)
 
     params_server = cli_params
 
@@ -740,7 +774,7 @@ def test_manager_with_config_file_01(
         re.set_used_redis_name_prefix("qs_unit_tests2")
 
     # Test that the manager started successfully
-    state = get_manager_status()
+    state = get_manager_status(encoding=zmq_encoding)
     assert state["manager_state"] == "idle"
 
     with open(save_settings_path, "r") as f:
@@ -750,7 +784,7 @@ def test_manager_with_config_file_01(
     #   separately. This is needed because the default startup directory
     #   returned by 'get_default_startup_dir()` is different for the manager
     #   and the testing code when the test is running on CI.
-    expected_settings = copy.deepcopy(get_expected_settings(file_dir))
+    expected_settings = copy.deepcopy(get_expected_settings(file_dir, tmpdir))
 
     print("Current_settings:\n" + pprint.pformat(current_settings))  # Useful in case of failure
     print("Expected settings:\n" + pprint.pformat(expected_settings))  # Useful in case of failure
@@ -830,32 +864,32 @@ def test_cli_device_max_depth_01(re_manager_cmd, tmp_path, device_max_depth, det
         params.extend(["--device-max-depth", str(device_max_depth)])
     re_manager_cmd(params)
 
-    resp2, _ = zmq_single_request("environment_open")
+    resp2, _ = zmq_request("environment_open")
     assert resp2["success"] is True
     assert resp2["msg"] == ""
 
     assert wait_for_condition(time=timeout_env_open, condition=condition_environment_created)
 
-    resp3, _ = zmq_single_request("devices_allowed", {"user_group": _user_group})
+    resp3, _ = zmq_request("devices_allowed", {"user_group": _user_group})
     assert resp3["success"] is True
     devices_allowed_1 = resp3["devices_allowed"]
     assert "sim_bundle_A" in devices_allowed_1
 
-    resp3, _ = zmq_single_request("devices_allowed")
+    resp3, _ = zmq_request("devices_allowed")
 
     script = "sim_bundle_copy = sim_bundle_A"
-    resp4, _ = zmq_single_request("script_upload", params={"script": script})
+    resp4, _ = zmq_request("script_upload", params={"script": script})
     assert resp4["success"] is True, resp4
 
     wait_for_condition(time=10, condition=condition_manager_idle)
 
-    resp5, _ = zmq_single_request("devices_allowed", {"user_group": _user_group})
+    resp5, _ = zmq_request("devices_allowed", {"user_group": _user_group})
     assert resp5["success"] is True
     devices_allowed_2 = resp5["devices_allowed"]
     assert "sim_bundle_A" in devices_allowed_2
     assert "sim_bundle_copy" in devices_allowed_2
 
-    resp9, _ = zmq_single_request("environment_close")
+    resp9, _ = zmq_request("environment_close")
     assert resp9["success"] is True
     assert resp9["msg"] == ""
 
@@ -907,29 +941,29 @@ def test_cli_use_ipython_kernel_01(re_manager_cmd, use_ipython_kernel):  # noqa:
         params.extend([f"--use-ipython-kernel={on_off}"])
     re_manager_cmd(params)
 
-    resp2, _ = zmq_single_request("environment_open")
+    resp2, _ = zmq_request("environment_open")
     assert resp2["success"] is True
     assert resp2["msg"] == ""
 
     assert wait_for_condition(time=timeout_env_open, condition=condition_environment_created)
 
-    resp, _ = zmq_single_request("script_upload", params={"script": _script_check_env})
+    resp, _ = zmq_request("script_upload", params={"script": _script_check_env})
     assert resp["success"] is True, pprint.pformat(resp)
     assert wait_for_condition(time=timeout_env_open, condition=condition_manager_idle)
     task_uid = resp["task_uid"]
 
-    resp, _ = zmq_single_request("task_result", params={"task_uid": task_uid})
+    resp, _ = zmq_request("task_result", params={"task_uid": task_uid})
     assert resp["success"] is True, pprint.pformat(resp)
     assert resp["result"]["success"] is True, pprint.pformat(resp)
 
     func_item = {"name": "func_for_test_check_env", "item_type": "function"}
     params = {"user": _user, "user_group": _user_group}
-    resp, _ = zmq_single_request("function_execute", params={"item": func_item, **params})
+    resp, _ = zmq_request("function_execute", params={"item": func_item, **params})
     assert resp["success"] is True, pprint.pformat(resp)
     assert wait_for_condition(time=timeout_env_open, condition=condition_manager_idle)
     task_uid = resp["task_uid"]
 
-    resp, _ = zmq_single_request("task_result", params={"task_uid": task_uid})
+    resp, _ = zmq_request("task_result", params={"task_uid": task_uid})
     assert resp["success"] is True, pprint.pformat(resp)
     assert resp["result"]["success"] is True, pprint.pformat(resp)
 
@@ -939,7 +973,7 @@ def test_cli_use_ipython_kernel_01(re_manager_cmd, use_ipython_kernel):  # noqa:
         expected_use_ipython = bool(use_ipykernel_for_tests())
     assert resp["result"]["return_value"] == [True, expected_use_ipython]
 
-    resp9, _ = zmq_single_request("environment_close")
+    resp9, _ = zmq_request("environment_close")
     assert resp9["success"] is True
     assert resp9["msg"] == ""
 
@@ -963,13 +997,13 @@ def test_cli_ipython_kernel_ip_01(re_manager_cmd, ipython_kernel_ip):  # noqa: F
         params.extend([f"--ipython-kernel-ip={ipython_kernel_ip}"])
     re_manager_cmd(params)
 
-    resp2, _ = zmq_single_request("environment_open")
+    resp2, _ = zmq_request("environment_open")
     assert resp2["success"] is True
     assert resp2["msg"] == ""
 
     assert wait_for_condition(time=timeout_env_open, condition=condition_environment_created)
 
-    resp, _ = zmq_single_request("config_get")
+    resp, _ = zmq_request("config_get")
     assert resp["success"] is True
 
     connect_info = resp["config"]["ip_connect_info"]
@@ -981,11 +1015,158 @@ def test_cli_ipython_kernel_ip_01(re_manager_cmd, ipython_kernel_ip):  # noqa: F
     else:
         assert False, f"Unsupported value of ipython_kernel_ip: {ipython_kernel_ip!r}"
 
-    resp9, _ = zmq_single_request("environment_close")
+    resp9, _ = zmq_request("environment_close")
     assert resp9["success"] is True
     assert resp9["msg"] == ""
 
     assert wait_for_condition(time=3, condition=condition_environment_closed)
+
+
+# fmt: off
+@pytest.mark.parametrize("set_conn_file_second_run, set_ports_second_run, change_ports_second_run", [
+    (True, True, False),
+    (True, False, False),
+    (False, True, False),
+    (False, False, False),
+    (True, True, True),
+    (False, True, True),
+])
+# fmt: on
+@pytest.mark.skipif(not use_ipykernel_for_tests(), reason="Test is run only with IPython worker")
+def test_cli_ipython_connection_info_01(
+    tmp_path,
+    re_manager_cmd,  # noqa: F811
+    set_conn_file_second_run,
+    set_ports_second_run,
+    change_ports_second_run,
+):
+    """
+    CLI parameters '--ipython-connection-file', '--ipython-connection-dir',
+    '--ipython-shell-port', '--ipython-iopub-port', '--ipython-stdin-port',
+    '--ipython-hb-port', '--ipython-control-port'. Test different combinations.
+
+    Expected behavior:
+      1. The connection file is created in the specified directory.
+      2. If the environment is restarted, then it uses the same connection file
+         unless different ports are specified.
+      3. If different ports are specified, then the new connection file is created.
+
+    In this test, the server is started, then the environment is opened and closed twice,
+    then the server is stopped and started again with the same or different parameters
+    and the environment is opened again.
+
+    Run this test only for IP kernel worker.
+    """
+    connection_dir = os.path.join(tmp_path, "connection_dir")
+    connection_file = "test_connection_file.json"
+
+    os.makedirs(connection_dir, exist_ok=True)
+
+    ports_1 = dict(shell_port=60000, iopub_port=60001, stdin_port=60002, hb_port=60003, control_port=60004)
+    ports_2 = dict(shell_port=60010, iopub_port=60011, stdin_port=60012, hb_port=60013, control_port=60014)
+
+    # Start the manager
+
+    def create_parameters(set_conn_file, ports):
+        params = []
+        if set_conn_file:
+            params.extend([f"--ipython-connection-file={connection_file}"])
+            params.extend([f"--ipython-connection-dir={connection_dir}"])
+        if ports:
+            params.extend([f"--ipython-shell-port={ports['shell_port']}"])
+            params.extend([f"--ipython-iopub-port={ports['iopub_port']}"])
+            params.extend([f"--ipython-stdin-port={ports['stdin_port']}"])
+            params.extend([f"--ipython-hb-port={ports['hb_port']}"])
+            params.extend([f"--ipython-control-port={ports['control_port']}"])
+        return params
+
+    params = create_parameters(set_conn_file=True, ports=ports_1)
+    re = re_manager_cmd(params)
+
+    # Open environment the first time
+    resp2, _ = zmq_request("environment_open")
+    assert resp2["success"] is True
+    assert resp2["msg"] == ""
+
+    assert wait_for_condition(time=timeout_env_open, condition=condition_environment_created)
+
+    # Check that the connection file was created
+    connection_file_path = os.path.join(connection_dir, connection_file)
+    assert os.path.exists(connection_file_path), connection_file_path
+
+    resp, _ = zmq_request("config_get")
+    assert resp["success"] is True
+
+    connect_info1 = resp["config"]["ip_connect_info"]
+
+    resp3, _ = zmq_request("environment_close")
+    assert resp3["success"] is True
+    assert resp3["msg"] == ""
+
+    assert wait_for_condition(time=3, condition=condition_environment_closed)
+
+    # Open environment the second time, make sure it does not crash
+    resp4, _ = zmq_request("environment_open")
+    assert resp4["success"] is True
+    assert resp4["msg"] == ""
+
+    assert wait_for_condition(time=timeout_env_open, condition=condition_environment_created)
+
+    resp, _ = zmq_request("config_get")
+    assert resp["success"] is True
+
+    connect_info2 = resp["config"]["ip_connect_info"]
+
+    resp5, _ = zmq_request("environment_close")
+    assert resp5["success"] is True
+    assert resp5["msg"] == ""
+
+    assert wait_for_condition(time=3, condition=condition_environment_closed)
+
+    # Check that connection info is identical
+    assert connect_info1 == connect_info2
+
+    re.stop_manager()
+
+    ports = ports_2 if change_ports_second_run else ports_1
+    ports_to_set = ports if set_ports_second_run else None
+    params = create_parameters(set_conn_file=set_conn_file_second_run, ports=ports_to_set)
+    re_manager_cmd(params)
+
+    # Open environment the second time, make sure it does not crash
+    resp4, _ = zmq_request("environment_open")
+    assert resp4["success"] is True
+    assert resp4["msg"] == ""
+
+    assert wait_for_condition(time=timeout_env_open, condition=condition_environment_created)
+
+    resp, _ = zmq_request("config_get")
+    assert resp["success"] is True
+
+    connect_info3 = resp["config"]["ip_connect_info"]
+
+    resp5, _ = zmq_request("environment_close")
+    assert resp5["success"] is True
+    assert resp5["msg"] == ""
+
+    assert wait_for_condition(time=3, condition=condition_environment_closed)
+
+    if set_conn_file_second_run and not change_ports_second_run:
+        assert connect_info2 == connect_info3
+    elif set_ports_second_run:
+        assert connect_info2 != connect_info3
+        assert connect_info3["shell_port"] == ports["shell_port"]
+        assert connect_info3["iopub_port"] == ports["iopub_port"]
+        assert connect_info3["stdin_port"] == ports["stdin_port"]
+        assert connect_info3["hb_port"] == ports["hb_port"]
+        assert connect_info3["control_port"] == ports["control_port"]
+    else:
+        assert connect_info2 != connect_info3
+        assert connect_info3["shell_port"] != ports["shell_port"]
+        assert connect_info3["iopub_port"] != ports["iopub_port"]
+        assert connect_info3["stdin_port"] != ports["stdin_port"]
+        assert connect_info3["hb_port"] != ports["hb_port"]
+        assert connect_info3["control_port"] != ports["control_port"]
 
 
 _script_test_plan_invalid_1 = """
@@ -1014,7 +1195,7 @@ def test_cli_ignore_invalid_plans_01(tmp_path, re_manager_cmd, ignore_invalid_pl
         params.extend([f"--ignore-invalid-plans={on_off}"])
     re_manager_cmd(params)
 
-    resp2, _ = zmq_single_request("environment_open")
+    resp2, _ = zmq_request("environment_open")
     assert resp2["success"] is True
     assert resp2["msg"] == ""
 
@@ -1029,12 +1210,12 @@ def test_cli_ignore_invalid_plans_01(tmp_path, re_manager_cmd, ignore_invalid_pl
         assert status["worker_environment_exists"] is True
         assert status["worker_environment_state"] == "idle"
 
-        resp, _ = zmq_single_request("plans_allowed", params={"user_group": _user_group})
+        resp, _ = zmq_request("plans_allowed", params={"user_group": _user_group})
         assert resp["success"] is True, pprint.pformat(resp)
         plans_allowed = resp["plans_allowed"]
         assert "test_plan_failing" not in plans_allowed
 
-        resp9, _ = zmq_single_request("environment_close")
+        resp9, _ = zmq_request("environment_close")
         assert resp9["success"] is True
         assert resp9["msg"] == ""
 
@@ -1058,7 +1239,7 @@ def test_cli_ignore_invalid_plans_02(tmp_path, re_manager_cmd, ignore_invalid_pl
         params.extend([f"--ignore-invalid-plans={on_off}"])
     re_manager_cmd(params)
 
-    resp, _ = zmq_single_request("environment_open")
+    resp, _ = zmq_request("environment_open")
     assert resp["success"] is True
     assert resp["msg"] == ""
 
@@ -1067,7 +1248,7 @@ def test_cli_ignore_invalid_plans_02(tmp_path, re_manager_cmd, ignore_invalid_pl
     assert status["worker_environment_exists"] is True
     assert status["worker_environment_state"] == "idle"
 
-    resp, _ = zmq_single_request("script_upload", params=dict(script=_script_test_plan_invalid_1))
+    resp, _ = zmq_request("script_upload", params=dict(script=_script_test_plan_invalid_1))
     assert resp["success"] is True
     assert resp["msg"] == ""
 
@@ -1085,12 +1266,12 @@ def test_cli_ignore_invalid_plans_02(tmp_path, re_manager_cmd, ignore_invalid_pl
 
     assert wait_for_condition(time=10, condition=condition_manager_idle)
 
-    resp, _ = zmq_single_request("plans_allowed", params={"user_group": _user_group})
+    resp, _ = zmq_request("plans_allowed", params={"user_group": _user_group})
     assert resp["success"] is True, pprint.pformat(resp)
     plans_allowed = resp["plans_allowed"]
     assert "test_plan_failing" not in plans_allowed
 
-    resp9, _ = zmq_single_request("environment_close")
+    resp9, _ = zmq_request("environment_close")
     assert resp9["success"] is True
     assert resp9["msg"] == ""
 

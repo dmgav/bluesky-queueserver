@@ -1,6 +1,6 @@
 # These are required for developing the package (running the tests, building
 # the documentation) but not necessarily required for _using_ it.
-black
+black!=25.11.0
 coverage
 flake8
 isort
@@ -22,3 +22,12 @@ sphinx
 sphinx_rtd_theme
 # Extra dependencies for development
 fastapi[all]
+# moved from requirements.txt
+pandas
+pyarrow
+matplotlib # Needed for BEC, should be factored out
+scikit-image # Needed for BEC/other stuff to run, factor out
+# Dependencies of ophyd-async
+h5py
+aioca
+ophyd-async

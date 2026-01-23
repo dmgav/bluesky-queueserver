@@ -22,6 +22,7 @@ from .comms import (
     default_zmq_control_address,
     generate_zmq_keys,
     generate_zmq_public_key,
+    process_zmq_encoding_name,
     validate_zmq_key,
     zmq_single_request,
 )
@@ -157,6 +158,8 @@ qserver re runs closed     # Get the list of closed runs (subset of active runs)
 
 qserver history get        # Request plan history
 qserver history clear      # Clear plan history
+qserver history clear 200  # Clear the history, leave the latest 200 items
+qserver history clear <uid>  # Clear the history by removing older items starting from the specified item
 
 qserver function execute <function-params>             # Start execution of a function
 qserver function execute <function-params> background  # ... in the background thread
@@ -767,6 +770,47 @@ def msg_queue_stop(params):
     return method, prms
 
 
+def msg_history_clear(params):
+    """
+    Generate outgoing message for `history clear` command.
+
+    Parameters
+    ----------
+    params : list
+        List of parameters of the command. The first element of the list is expected to be ``clear`` keyword.
+        The optional second element can be an item UID or a desired number of elements in the queue (integer).
+
+    Returns
+    -------
+    str
+        Name of the method from RE Manager API
+    dict
+        Dictionary of the method parameters
+
+    """
+    # Check if the function was called for the appropriate command
+    command = "history"
+    expected_p0 = "clear"
+    if params[0] != expected_p0:
+        raise ValueError(f"Incorrect parameter value '{params[0]}'. Expected value: '{expected_p0}'")
+
+    check_number_of_parameters(params, 1, 2, params)
+
+    method = f"{command}_{params[0]}"
+    prms = {}
+    if len(params) == 2:
+        try:
+            size_new = int(params[1])
+            prms["size"] = size_new
+        except ValueError:
+            # If the value can not be interpreted as integer, try sending it as a UID.
+            item_uid = params[1]
+            # TODO: add validation to check if the string matches UID format
+            prms["item_uid"] = item_uid
+
+    return method, prms
+
+
 def msg_re_pause(params):
     """
     Generate outgoing message for `re pause` command.
@@ -1055,7 +1099,7 @@ def create_msg(params, *, lock_key):
                 if len(params) != 1:
                     raise CommandParameterError(f"Request '{command} {params[0]}' must include only one parameter")
                 method, prms = f"{command}_{params[0]}", {}
-                if params[0] in ("clear", "start"):
+                if params[0] == ("start", "clear"):
                     if lock_key:
                         prms["lock_key"] = lock_key
 
@@ -1117,11 +1161,13 @@ def create_msg(params, *, lock_key):
         if len(params) < 1:
             raise CommandParameterError(f"Request '{command}' must include at least one parameter")
         supported_params = ("get", "clear")
-        if params[0] in supported_params:
+        if params[0] == "get":
             method, prms = f"{command}_{params[0]}", {}
-            if params[0] == "clear":
-                if lock_key:
-                    prms["lock_key"] = lock_key
+        elif params[0] == "clear":
+            method, prms = msg_history_clear(params)
+            if lock_key:
+                prms["lock_key"] = lock_key
+
         else:
             raise CommandParameterError(f"Request '{command} {params[0]}' is not supported")
 
@@ -1258,7 +1304,7 @@ def qserver():
 
     parser = argparse.ArgumentParser(
         description="Command-line tool for communicating with RE Monitor.\n"
-        f"bluesky-queueserver version {qserver_version}.\n",
+        f"bluesky-queueserver version {qserver_version}\n",
         formatter_class=formatter,
         epilog=f"\n\n{s_enc}\n\n{cli_examples}\n\n",
     )
@@ -1289,6 +1335,16 @@ def qserver():
         action="store",
         default=None,
         help="The parameter is deprecated and will be removed. Use --zmq-control-addr instead.",
+    )
+
+    parser.add_argument(
+        "--zmq-encoding",
+        dest="zmq_encoding",
+        type=str,
+        default=None,
+        help="The encoding used for 0MQ communication. The encoding must match the encoding used by RE Manager. "
+        "The parameter value overrides the value set by QSERVER_ZMQ_ENCODING environment variable. "
+        "The supported values: 'json' (default) or 'pickle'.",
     )
 
     parser.add_argument(
@@ -1323,6 +1379,11 @@ def qserver():
                     f"Lock key must be a non-empty string: submitted lock key is {lock_key!r}"
                 )
 
+        zmq_encoding = args.zmq_encoding
+        zmq_encoding = zmq_encoding or os.environ.get("QSERVER_ZMQ_ENCODING", None)
+        zmq_encoding = zmq_encoding or "json"
+        zmq_encoding = process_zmq_encoding_name(zmq_encoding)
+
         # Read public key from the environment variable, then check if the CLI parameter exists
         zmq_public_key = os.environ.get("QSERVER_ZMQ_PUBLIC_KEY", None)
         zmq_public_key = zmq_public_key if zmq_public_key else None  # Case of key==""
@@ -1338,7 +1399,7 @@ def qserver():
 
         while True:
             msg, msg_err = zmq_single_request(
-                method, params, zmq_server_address=address, server_public_key=zmq_public_key
+                method, params, zmq_server_address=address, server_public_key=zmq_public_key, encoding=zmq_encoding
             )
 
             now = datetime.now()
@@ -1381,7 +1442,7 @@ def qserver_zmq_keys():
 
     parser = argparse.ArgumentParser(
         description="Bluesky-QServer:\nZMQ security: Generate public-private key pair for "
-        f"ZeroMQ control communication channel.\nbluesky-queueserver version {qserver_version}.\n\n"
+        f"ZeroMQ control communication channel.\nbluesky-queueserver version {qserver_version}\n\n"
         f"Generate new public-private key pair for secured 0MQ control connection between\n"
         f"RE Manager and client applications. If private key is passed as ``--zmq-private-key``\n"
         f"parameter, then the generated key pair is based on the provided private key.\n",
@@ -1433,7 +1494,7 @@ def qserver_clear_lock():
 
     parser = argparse.ArgumentParser(
         description="Bluesky-QServer: Clear RE Manager lock.\n"
-        f"bluesky-queueserver version {qserver_version}.\n\n"
+        f"bluesky-queueserver version {qserver_version}\n\n"
         "Recover locked RE Manager if the lock key is lost. The utility requires access to Redis\n"
         "used by RE Manager. Provide the address of Redis service using '--redis-addr' parameter.\n"
         "Restart the RE Manager service after clearing the lock.\n",
@@ -1445,7 +1506,7 @@ def qserver_clear_lock():
         dest="redis_addr",
         type=str,
         default="localhost",
-        help="The address of Redis server, e.g. 'localhost', '127.0.0.1', 'localhost:6379' "
+        help="The address of Redis server, e.g. 'localhost', '127.0.0.1', 'localhost:6379', 'localhost:6379/0'"
         "(default: %(default)s). ",
     )
 
@@ -1493,7 +1554,7 @@ def qserver_console_base(*, app_name):
 
     parser = argparse.ArgumentParser(
         description="Bluesky-QServer: Start Jupyter console for IPython kernel running in the worker process.\n"
-        f"bluesky-queueserver version {qserver_version}.\n\n"
+        f"bluesky-queueserver version {qserver_version}\n\n"
         "Requests IPython kernel connection info from RE Manager and starts Jupyter Console. The RE Worker\n"
         "must be running (environment opened) and using IPython kernel. The address of 0MQ control port of\n"
         "RE Manager can be passed as a parameter or an environment variable. If encryption of the control\n"
@@ -1515,6 +1576,16 @@ def qserver_console_base(*, app_name):
         f"(default: {default_zmq_control_address!r}).",
     )
 
+    parser.add_argument(
+        "--zmq-encoding",
+        dest="zmq_encoding",
+        type=str,
+        default=None,
+        help="The encoding used for 0MQ communication. The encoding must match the encoding used by RE Manager. "
+        "The parameter value overrides the value set by QSERVER_ZMQ_ENCODING environment variable. "
+        "The supported values: 'json' (default) or 'msgpack'.",
+    )
+
     args = parser.parse_args()
 
     exit_code = QServerExitCodes.SUCCESS
@@ -1525,6 +1596,11 @@ def qserver_console_base(*, app_name):
         address = address or os.environ.get("QSERVER_ZMQ_CONTROL_ADDRESS", None)
         # If the address is not specified, then use the default address
         address = address or default_zmq_control_address
+
+        zmq_encoding = args.zmq_encoding
+        zmq_encoding = zmq_encoding or os.environ.get("QSERVER_ZMQ_ENCODING", None)
+        zmq_encoding = zmq_encoding or "json"
+        zmq_encoding = process_zmq_encoding_name(zmq_encoding)
 
         # Read public key from the environment variable, then check if the CLI parameter exists
         zmq_public_key = os.environ.get("QSERVER_ZMQ_PUBLIC_KEY", None)
@@ -1537,7 +1613,7 @@ def qserver_console_base(*, app_name):
 
         # Request connection info
         msg, msg_err = zmq_single_request(
-            "config_get", zmq_server_address=address, server_public_key=zmq_public_key
+            "config_get", zmq_server_address=address, server_public_key=zmq_public_key, encoding=zmq_encoding
         )
 
         now = datetime.now()

@@ -110,7 +110,12 @@ def create_excel_file_from_plan_list(tmp_path, *, plan_list, ss_filename="spread
         for key in df.keys():
             for n in range(len(df[key])):
                 try:
-                    df.loc[n, key] = str_to_number(df.loc[n, key])
+                    v = str_to_number(df.loc[n, key])
+                    try:
+                        df.loc[n, key] = v
+                    except TypeError:
+                        df[key] = df[key].astype("object")
+                        df.loc[n, key] = v
                 except Exception:
                     pass
         return df

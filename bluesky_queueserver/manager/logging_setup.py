@@ -25,7 +25,7 @@ def setup_loggers(*, log_level, name="bluesky_queueserver"):
         or (log_level == "DEBUG")
         or (isinstance(log_level, int) and (log_level <= 10))
     ):
-        log_stream_format = "[%(levelname)1.1s %(asctime)s.%(msecs)03d %(name)s %(module)s:%(lineno)d] %(message)s"
+        log_stream_format = "[%(levelname)1.1s %(asctime)s %(name)s %(module)s:%(lineno)d] %(message)s"
     else:
         log_stream_format = "[%(levelname)1.1s %(asctime)s %(name)s] %(message)s"
 
@@ -68,7 +68,7 @@ class PPrintForLogging:
         Formatted object ``msg``.
     """
 
-    def __init__(self, msg, *, max_list_size=10, max_dict_size=25, max_chars_in_str=1024):
+    def __init__(self, msg, *, max_list_size=10, max_dict_size=30, max_chars_in_str=1024):
         self._msg = msg
         self._max_list_size = max_list_size
         self._max_dict_size = max_dict_size

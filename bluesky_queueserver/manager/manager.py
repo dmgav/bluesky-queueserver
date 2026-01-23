@@ -7,15 +7,16 @@ import uuid
 from datetime import datetime
 from multiprocessing import Process
 
+import msgpack
 import zmq
 import zmq.asyncio
 
 import bluesky_queueserver
 
-from .comms import CommTimeoutError, PipeJsonRpcSendAsync, validate_zmq_key
+from .comms import CommTimeoutError, PipeJsonRpcSendAsync, ZMQEncoding, process_zmq_encoding_name, validate_zmq_key
 from .logging_setup import PPrintForLogging as ppfl
 from .logging_setup import setup_loggers
-from .output_streaming import setup_console_output_redirection
+from .output_streaming import push_info_to_msg_queue, setup_console_output_redirection
 from .plan_queue_ops import PlanQueueOperations
 from .profile_ops import (
     check_if_function_allowed,
@@ -215,6 +216,9 @@ class RunEngineManager(Process):
         self._watchdog_conn = conn_watchdog
         self._worker_conn = conn_worker
 
+        # Recent RE Manager status. The status must be updated after each operation by 'self._status_update()'
+        self._status = {}
+
         # The number of time RE Manager was started (including the first attempt to start it).
         #   Numbering starts from 1.
         self._number_of_restarts = number_of_restarts
@@ -225,7 +229,6 @@ class RunEngineManager(Process):
         self._lock_info = LockInfo()  # Lock/unlock environment and/or queue
         self._lock_info.set_emergency_lock_key(config["lock_key_emergency"])
 
-        # The following attributes hold the state of the system
         self._manager_stopping = False  # Set True to exit manager (by _manager_stop_handler)
         self._environment_exists = False  # True if RE Worker environment exists
         self._manager_state = MState.INITIALIZING
@@ -245,6 +248,7 @@ class RunEngineManager(Process):
         self._loop = None
 
         # Communication with the server using ZMQ
+        self._zmq_encoding = process_zmq_encoding_name(config["zmq_encoding"])
         self._ctx = None
         self._zmq_socket = None
         self._zmq_ip_server = "tcp://*:60615"
@@ -274,6 +278,10 @@ class RunEngineManager(Process):
 
         self._heartbeat_generator_task = None  # Task for heartbeat generator
         self._worker_status_task = None  # Task for periodic checks of Worker status
+
+        self._status_publish_periodic_task = None  # Task for periodic publishing of the status
+        self._status_publish_period = 1  # Desired period for publishing status, seconds
+        self._status_publish_next_time = 0  # Time when the status will be published next
 
         # The future is used for opening/closing RE Worker environment. Those task always run separately.
         self._fut_manager_task_completed = None
@@ -325,6 +333,7 @@ class RunEngineManager(Process):
         self.__queue_stop_pending = enabled
         if self._plan_queue:
             await self._plan_queue.stop_pending_save({"enabled": enabled})
+        self._status_update()
 
     @property
     def queue_autostart_enabled(self):
@@ -341,6 +350,7 @@ class RunEngineManager(Process):
         self.__queue_autostart_enabled = enabled
         if self._plan_queue:
             await self._plan_queue.autostart_mode_save({"enabled": enabled})
+        self._status_update()
 
     async def _heartbeat_generator(self):
         """
@@ -355,6 +365,88 @@ class RunEngineManager(Process):
                 break
             except Exception as ex:
                 logger.warning(f"Exception occurred while sending heartbeat: {ex}")
+
+    async def _status_publish_periodic(self):
+        """
+        Task that periodically publishes status to ZMQ socket (adds message to 'msg_queue').
+        """
+        # Initialize next publish time. The publish time is updated in 'self._status_publish()'.
+        self._status_publish_next_time = ttime.time() + self._status_publish_period
+
+        while True:
+            try:
+                wait_time = max(self._status_publish_next_time - ttime.time(), 0)
+                await asyncio.sleep(wait_time)
+                if ttime.time() >= self._status_publish_next_time - 0.1:
+                    self._status_publish()
+            except asyncio.CancelledError:
+                break
+            except Exception as ex:
+                logger.warning(f"Exception occurred while periodic publishing of the status: {ex}")
+
+    def _status_publish(self):
+        """
+        Publish current status to the 0MQ 'info' socket.
+        """
+        self._status_publish_next_time = ttime.time() + self._status_publish_period
+        if self._status:
+            push_info_to_msg_queue(key="status", msg=self._status, msg_queue=self._msg_queue)
+
+    def _get_timestamp_iso8601(self):
+        """
+        Returns current timestamp in ISO 8601 format.
+        """
+        return datetime.now().isoformat()
+
+    def _compute_re_state(self):
+        return self._worker_state_info["re_state"] if self._worker_state_info else None
+
+    def _status_update(self):
+        """
+        Compute the updated status
+        """
+        logger.debug("Status update ...")
+
+        running_item_info = self._plan_queue.get_running_item_info()
+        ip_kernel_state = self._worker_state_info["ip_kernel_state"] if self._worker_state_info else None
+        ip_kernel_captured = self._worker_state_info["ip_kernel_captured"] if self._worker_state_info else None
+        env_state = self._worker_state_info["environment_state"] if self._worker_state_info else "closed"
+        background_tasks = self._worker_state_info["background_tasks_num"] if self._worker_state_info else 0
+
+        # The status reference is replaced each time status is updated, i.e. stored reference should not be
+        #   used to access status.
+        self._status = {
+            "msg": f"RE Manager v{qserver_version}",
+            "time": self._get_timestamp_iso8601(),
+            "items_in_queue": self._plan_queue.get_queue_size(),
+            "items_in_history": self._plan_queue.get_history_size(),
+            "running_item_uid": running_item_info["item_uid"] if running_item_info else None,
+            "manager_state": self._manager_state.value,
+            "queue_stop_pending": self.queue_stop_pending,
+            "queue_autostart_enabled": self.queue_autostart_enabled,
+            "worker_environment_exists": self._environment_exists,
+            "worker_environment_state": env_state,  # State of the worker environment
+            "worker_background_tasks": background_tasks,  # The number of background tasks
+            "re_state": self._compute_re_state(),  # State of Run Engine
+            "ip_kernel_state": ip_kernel_state,  # State of IPython kernel
+            "ip_kernel_captured": ip_kernel_captured,
+            "pause_pending": self._re_pause_pending,  # True/False - Cleared once pause processed
+            # The following UIDs change each time the respective data object is changed at the server
+            "status_uid": _generate_uid(),  # New UID each time status is updated
+            "run_list_uid": self._re_run_list_uid,
+            "plan_queue_uid": self._plan_queue.plan_queue_uid,
+            "plan_history_uid": self._plan_queue.plan_history_uid,
+            "devices_existing_uid": self._existing_devices_uid,
+            "plans_existing_uid": self._existing_plans_uid,
+            "devices_allowed_uid": self._allowed_devices_uid,
+            "plans_allowed_uid": self._allowed_plans_uid,
+            "plan_queue_mode": self._plan_queue.plan_queue_mode,
+            "task_results_uid": self._task_results.task_results_uid,
+            "lock_info_uid": self._lock_info.uid,
+            "lock": {"environment": self._lock_info.environment, "queue": self._lock_info.queue},
+        }
+
+        self._status_publish()  # Add the updated status to 'msg_queue'
 
     # ======================================================================
     #          Functions that implement functionality of the server
@@ -416,6 +508,7 @@ class RunEngineManager(Process):
             else:
                 accepted, msg = True, ""
                 self._manager_state = MState.CREATING_ENVIRONMENT
+                self._status_update()
 
                 asyncio.ensure_future(self._execute_background_task(self._start_re_worker_task()))
 
@@ -463,6 +556,7 @@ class RunEngineManager(Process):
             success, err_msg = False, f"Failed to start_Worker {str(ex)}"
 
         self._manager_state = MState.IDLE
+        self._status_update()
 
         if success:
             self._autostart_push()
@@ -494,6 +588,7 @@ class RunEngineManager(Process):
             else:
                 accepted, err_msg = True, ""
                 self._manager_state = MState.CLOSING_ENVIRONMENT
+                self._status_update()
 
                 asyncio.ensure_future(self._execute_background_task(self._stop_re_worker_task()))
 
@@ -521,7 +616,10 @@ class RunEngineManager(Process):
             # Wait for RE Worker to be prepared to close
             self._event_worker_closed = asyncio.Event()  # !!
 
-            self._manager_state = MState.CLOSING_ENVIRONMENT
+            if self._manager_state != MState.CLOSING_ENVIRONMENT:
+                self._manager_state = MState.CLOSING_ENVIRONMENT
+                self._status_update()
+
             await self._fut_manager_task_completed  # TODO: timeout may be needed here
 
             if not await self._confirm_re_worker_exit():
@@ -534,6 +632,7 @@ class RunEngineManager(Process):
 
         self._manager_state = MState.IDLE
         self._running_task_uid = None
+        self._status_update()
 
         return success, err_msg
 
@@ -558,6 +657,7 @@ class RunEngineManager(Process):
         """
         success = False
         self._manager_state = MState.DESTROYING_ENVIRONMENT
+        self._status_update()
         await self._watchdog_kill_re_worker()
         # Wait for at most 10 seconds. Consider the environment destroyed after this.
         #   This should never fail unless there is a bug in the Manager or Watchdog,
@@ -590,6 +690,7 @@ class RunEngineManager(Process):
             await self._task_results.clear_running_tasks()
 
         self._running_task_uid = None
+        self._status_update()
 
         return success, err_msg
 
@@ -618,6 +719,7 @@ class RunEngineManager(Process):
                     )
             else:
                 success, err_msg = False, "RE Worker failed to exit (no confirmation)"
+            self._status_update()
         else:
             success, err_msg = False, "RE Worker environment does not exist"
         return success, err_msg
@@ -638,9 +740,16 @@ class RunEngineManager(Process):
 
                 ws, _ = await self._worker_request_state()
                 if ws is not None:
-                    self._worker_state_info = ws
+                    # Logic to minimize the number of unnecessary status updates
+                    update_status = False
+                    if self._worker_state_info != ws:
+                        self._worker_state_info = ws
+                        update_status = True
+
                     if ws["re_state"] == "paused":
                         self._re_pause_pending = False
+                        self._status_update()
+                        update_status = False
 
                     if ws["plans_and_devices_list_updated"]:
                         self._loop.create_task(self._load_existing_plans_and_devices_from_worker())
@@ -675,6 +784,9 @@ class RunEngineManager(Process):
 
                         if ws["run_list_updated"]:
                             self._loop.create_task(self._download_run_list())
+
+                    if update_status:
+                        self._status_update()
 
     async def _process_plan_report(self):
         """
@@ -720,7 +832,7 @@ class RunEngineManager(Process):
 
             if plan_state in ("completed", "unknown") or continue_failed:
                 # Check if the plan was running in the 'immediate_execution' mode.
-                item = await self._plan_queue.get_running_item_info()
+                item = self._plan_queue.get_running_item_info()
                 immediate_execution = item.get("properties", {}).get("immediate_execution", False)
 
                 # Executed plan is removed from the queue only after it is successfully completed.
@@ -742,6 +854,8 @@ class RunEngineManager(Process):
                 self._loop.create_task(self._set_manager_state(MState.PAUSED))
             else:
                 logger.error("Unknown plan state %s was returned by RE Worker.", plan_state)
+
+        self._status_update()
 
     async def _set_manager_state(self, state, *, coro=None, autostart_disable=False):
         """
@@ -786,6 +900,7 @@ class RunEngineManager(Process):
         else:
             self._re_run_list = run_list["run_list"]
             self._re_run_list_uid = _generate_uid()
+            self._status_update()
 
     def _set_existing_plans_and_devices(self, *, existing_plans, existing_devices, always_update_uids=False):
         """
@@ -834,6 +949,8 @@ class RunEngineManager(Process):
             except Exception as ex:
                 logger.exception("Failed to compute the list of allowed plans and devices: %s", ex)
 
+            self._status_update()
+
     async def _load_task_results_from_worker(self):
         """
         Download results of the completed tasks from worker process.
@@ -856,6 +973,7 @@ class RunEngineManager(Process):
                 def factory(*, task_uid, task_res):
                     async def inner():
                         await self._task_results.add_completed_task(task_uid=task_uid, payload=task_res)
+                        self._status_update()
 
                     return inner
 
@@ -875,6 +993,8 @@ class RunEngineManager(Process):
         try:
             if not self._environment_exists:
                 raise RuntimeError("RE Worker environment does not exist.")
+            elif self._compute_re_state() is None:
+                raise RuntimeError("Run Engine is not found in the RE Worker environment.")
             elif self._manager_state != MState.IDLE:
                 raise RuntimeError("RE Manager is busy.")
             elif self._use_ipython_kernel and self._is_ipkernel_external_task():
@@ -887,6 +1007,8 @@ class RunEngineManager(Process):
 
                 await self._queue_stop_deactivate()  # Just in case
                 self._manager_state = MState.STARTING_QUEUE
+                self._status_update()
+
                 asyncio.ensure_future(self._execute_background_task(self._start_plan_task()))
                 success, err_msg = True, ""
 
@@ -904,6 +1026,8 @@ class RunEngineManager(Process):
         try:
             if not self._environment_exists:
                 raise RuntimeError("RE Worker environment does not exist.")
+            elif self._compute_re_state() is None:
+                raise RuntimeError("Run Engine is not found in the RE Worker environment.")
             elif self._manager_state != MState.IDLE:
                 raise RuntimeError("RE Manager is busy.")
             elif self._use_ipython_kernel and self._is_ipkernel_external_task():
@@ -916,9 +1040,10 @@ class RunEngineManager(Process):
 
                 await self._queue_stop_deactivate()  # Just in case
                 self._manager_state = MState.STARTING_QUEUE
+                self._status_update()
 
                 item = self._plan_queue.set_new_item_uuid(item)
-                qsize = await self._plan_queue.get_queue_size()
+                qsize = self._plan_queue.get_queue_size()
 
                 asyncio.ensure_future(self._execute_background_task(self._start_plan_task(single_item=item)))
 
@@ -944,7 +1069,7 @@ class RunEngineManager(Process):
 
         # Check if the queue should be stopped and stop the queue
         if not immediate_execution:
-            n_pending_plans = await self._plan_queue.get_queue_size()
+            n_pending_plans = self._plan_queue.get_queue_size()
             if n_pending_plans:
                 logger.info("Processing the next queue item: %d plans are left in the queue.", n_pending_plans)
             else:
@@ -986,9 +1111,11 @@ class RunEngineManager(Process):
                     self._manager_state = MState.IDLE
                     err_msg = f"Failed to reset RE Worker: {err_msg}"
                     logger.error(err_msg)
+                    self._status_update()
                     return success, err_msg
 
                 new_plan = await self._plan_queue.process_next_item(item=single_item)
+                self._status_update()
 
                 plan_name = new_plan["name"]
                 args = new_plan["args"] if "args" in new_plan else []
@@ -1029,6 +1156,7 @@ class RunEngineManager(Process):
                 if next_item["name"] == "queue_stop":
                     await self._plan_queue.process_next_item(item=single_item)
                     self._manager_state = MState.EXECUTING_QUEUE
+                    self._status_update()
                     asyncio.ensure_future(self._start_plan_task(stop_queue=True, autostart_disable=True))
                     success, err_msg = True, ""
                 else:
@@ -1038,6 +1166,8 @@ class RunEngineManager(Process):
             else:
                 success = False
                 err_msg = f"Unrecognized item type: '{next_item['item_type']}' (item {next_item})"
+
+        self._status_update()
 
         return success, err_msg
 
@@ -1061,8 +1191,13 @@ class RunEngineManager(Process):
         if not self._environment_exists:
             success = False
             err_msg = "Environment does not exist."
+        elif self._compute_re_state() is None:
+            success = False
+            err_msg = "Run Engine is not found in the RE Worker environment."
         else:
             success, err_msg = await self._worker_command_pause_plan(option)
+
+        self._status_update()
 
         if not success:
             logger.error("Failed to pause Run Engine: %s", err_msg)
@@ -1088,6 +1223,9 @@ class RunEngineManager(Process):
             raise RuntimeError("IPython kernel (RE Worker) is busy.")
 
         elif self._environment_exists:
+            if self._compute_re_state() is None:
+                raise RuntimeError("Run Engine is not found in the RE Worker environment.")
+
             # Attempt to reserve IPython kernel.
             success, err_msg = await self._worker_command_reserve_kernel()
             if success:
@@ -1107,6 +1245,8 @@ class RunEngineManager(Process):
                 "Environment does not exist. Can not pause Run Engine.",
             )
 
+        self._status_update()
+
         return success, err_msg
 
     def _autostart_push(self):
@@ -1123,10 +1263,10 @@ class RunEngineManager(Process):
         """
         self._queue_autostart_event.clear()
         while True:
-            queue_size = await self._plan_queue.get_queue_size()
+            queue_size = self._plan_queue.get_queue_size()
             if not self.queue_autostart_enabled:
                 break
-            if queue_size and self._manager_state == MState.IDLE:
+            if queue_size and self._manager_state == MState.IDLE and self._compute_re_state() is not None:
                 success, err_msg = await self._start_plan()
                 if not success:
                     logger.debug("Autostart: failed to start a plan: %s", err_msg)
@@ -1194,6 +1334,7 @@ class RunEngineManager(Process):
             try:
                 if not run_in_background:
                     self._manager_state = MState.EXECUTING_TASK
+                    self._status_update()
 
                     # Attempt to reserve IPython kernel.
                     _success, _msg = await self._worker_command_reserve_kernel()
@@ -1208,12 +1349,14 @@ class RunEngineManager(Process):
                 )
                 if not run_in_background:
                     self._running_task_uid = task_uid
+                    self._status_update()
             except Exception:
                 success = False
                 raise
             finally:
                 if not success and not run_in_background:
                     self._manager_state = MState.IDLE
+                    self._status_update()
 
         return success, err_msg, task_uid
 
@@ -1239,6 +1382,7 @@ class RunEngineManager(Process):
             try:
                 if not run_in_background:
                     self._manager_state = MState.EXECUTING_TASK
+                    self._status_update()
 
                     # Attempt to reserve IPython kernel.
                     _success, _msg = await self._worker_command_reserve_kernel()
@@ -1272,6 +1416,7 @@ class RunEngineManager(Process):
             finally:
                 if not success and not run_in_background:
                     self._manager_state = MState.IDLE
+                    self._status_update()
 
         return success, err_msg, item, task_uid
 
@@ -1389,6 +1534,7 @@ class RunEngineManager(Process):
         except Exception as ex:
             success, msg = False, f"Failed to interrupt IPython kernel: {str(ex)}"
 
+        self._status_update()
         return success, msg
 
     # ===============================================================================
@@ -1573,6 +1719,7 @@ class RunEngineManager(Process):
             payload = response["payload"]
             if success:
                 await self._task_results.add_running_task(task_uid=task_uid, payload=payload)
+                self._status_update()
         except CommTimeoutError:
             success, err_msg, task_uid = None, "Timeout occurred while processing the request", None
         return success, err_msg, task_uid
@@ -1738,73 +1885,8 @@ class RunEngineManager(Process):
         # Status is expected to be requested very often. Print the message only in the debug mode.
         logger.debug("Processing 'status' request ...")
 
-        # Computed/retrieved data
-        n_pending_items = await self._plan_queue.get_queue_size()
-        running_item_info = await self._plan_queue.get_running_item_info()
-        n_items_in_history = await self._plan_queue.get_history_size()
-
-        # Prepared output data
-        response_msg = f"RE Manager v{qserver_version}"
-        items_in_queue = n_pending_items
-        items_in_history = n_items_in_history
-        running_item_uid = running_item_info["item_uid"] if running_item_info else None
-        manager_state = self._manager_state.value
-        queue_stop_pending = self.queue_stop_pending
-        queue_autostart_enabled = self.queue_autostart_enabled
-        worker_environment_exists = self._environment_exists
-        re_state = self._worker_state_info["re_state"] if self._worker_state_info else None
-        ip_kernel_state = self._worker_state_info["ip_kernel_state"] if self._worker_state_info else None
-        ip_kernel_captured = self._worker_state_info["ip_kernel_captured"] if self._worker_state_info else None
-        env_state = self._worker_state_info["environment_state"] if self._worker_state_info else "closed"
-        background_tasks = self._worker_state_info["background_tasks_num"] if self._worker_state_info else 0
-        deferred_pause_pending = self._re_pause_pending
-        run_list_uid = self._re_run_list_uid
-        plan_queue_uid = self._plan_queue.plan_queue_uid
-        plan_history_uid = self._plan_queue.plan_history_uid
-        devices_existing_uid = self._existing_devices_uid
-        plans_existing_uid = self._existing_plans_uid
-        devices_allowed_uid = self._allowed_devices_uid
-        plans_allowed_uid = self._allowed_plans_uid
-        plan_queue_mode = self._plan_queue.plan_queue_mode
-        task_results_uid = self._task_results.task_results_uid
-        lock_info_uid = self._lock_info.uid
-        locked_environment = self._lock_info.environment
-        locked_queue = self._lock_info.queue
-        # worker_state_info = self._worker_state_info
-
-        # TODO: consider different levels of verbosity for ping or other command to
-        #       retrieve detailed status.
-        msg = {
-            "msg": response_msg,
-            "items_in_queue": items_in_queue,
-            "items_in_history": items_in_history,
-            "running_item_uid": running_item_uid,
-            "manager_state": manager_state,
-            "queue_stop_pending": queue_stop_pending,
-            "queue_autostart_enabled": queue_autostart_enabled,
-            "worker_environment_exists": worker_environment_exists,
-            "worker_environment_state": env_state,  # State of the worker environment
-            "worker_background_tasks": background_tasks,  # The number of background tasks
-            "re_state": re_state,  # State of Run Engine
-            "ip_kernel_state": ip_kernel_state,  # State of IPython kernel
-            "ip_kernel_captured": ip_kernel_captured,
-            "pause_pending": deferred_pause_pending,  # True/False - Cleared once pause processed
-            # If Run List UID change, download the list of runs for the current plan.
-            # Run List UID is updated when the list is cleared as well.
-            "run_list_uid": run_list_uid,
-            "plan_queue_uid": plan_queue_uid,
-            "plan_history_uid": plan_history_uid,
-            "devices_existing_uid": devices_existing_uid,
-            "plans_existing_uid": plans_existing_uid,
-            "devices_allowed_uid": devices_allowed_uid,
-            "plans_allowed_uid": plans_allowed_uid,
-            "plan_queue_mode": plan_queue_mode,
-            "task_results_uid": task_results_uid,
-            "lock_info_uid": lock_info_uid,
-            "lock": {"environment": locked_environment, "queue": locked_queue},
-            # "worker_state_info": worker_state_info
-        }
-        return msg
+        # self._status_update()
+        return self._status
 
     async def _config_get_handler(self, request):
         """
@@ -1982,6 +2064,8 @@ class RunEngineManager(Process):
         except Exception as ex:
             success = False
             msg = f"Error: {str(ex)}"
+
+        self._status_update()
         return {"success": success, "msg": msg}
 
     async def _permissions_set_handler(self, request):
@@ -2014,6 +2098,7 @@ class RunEngineManager(Process):
             success = False
             msg = f"Error: {str(ex)}"
 
+        self._status_update()
         return {"success": success, "msg": msg}
 
     async def _permissions_get_handler(self, request):
@@ -2243,6 +2328,7 @@ class RunEngineManager(Process):
 
             plan_queue_mode = request["mode"]
             await self._plan_queue.set_plan_queue_mode(plan_queue_mode, update=True)
+            self._status_update()
 
         except Exception as ex:
             success = False
@@ -2310,6 +2396,7 @@ class RunEngineManager(Process):
 
         logger.info(self._generate_item_log_msg("Item added", success, item_type, item, qsize))
 
+        self._status_update()
         rdict = {"success": success, "msg": msg, "qsize": qsize, "item": item}
         return rdict
 
@@ -2420,11 +2507,12 @@ class RunEngineManager(Process):
             msg = f"Failed to add an item: {str(ex)}"
 
         try:
-            qsize = await self._plan_queue.get_queue_size()
+            qsize = self._plan_queue.get_queue_size()
         except Exception:
             pass
 
         logger.info(self._generate_item_log_msg("Batch of items added", success, None, None, qsize))
+        self._status_update()
 
         # Note, that 'item_list' may be an empty list []
         rdict = {"success": success, "msg": msg, "qsize": qsize, "items": item_list, "results": results}
@@ -2475,6 +2563,7 @@ class RunEngineManager(Process):
             msg = f"Failed to add an item: {str(ex)}"
 
         logger.info(self._generate_item_log_msg("Item updated", success, item_type, item, qsize))
+        self._status_update()
 
         rdict = {"success": success, "msg": msg, "qsize": qsize, "item": item}
 
@@ -2526,6 +2615,7 @@ class RunEngineManager(Process):
             success = False
             msg = f"Failed to remove an item: {str(ex)}"
 
+        self._status_update()
         return {"success": success, "msg": msg, "item": item, "qsize": qsize}
 
     async def _queue_item_remove_batch_handler(self, request):
@@ -2559,6 +2649,7 @@ class RunEngineManager(Process):
             success = False
             msg = f"Failed to remove a batch of items: {str(ex)}"
 
+        self._status_update()
         return {"success": success, "msg": msg, "items": items, "qsize": qsize}
 
     async def _queue_item_move_handler(self, request):
@@ -2590,6 +2681,7 @@ class RunEngineManager(Process):
             success = False
             msg = f"Failed to move the item: {str(ex)}"
 
+        self._status_update()
         return {"success": success, "msg": msg, "item": item, "qsize": qsize}
 
     async def _queue_item_move_batch_handler(self, request):
@@ -2632,6 +2724,7 @@ class RunEngineManager(Process):
             success = False
             msg = f"Failed to move the batch of items: {str(ex)}"
 
+        self._status_update()
         return {"success": success, "msg": msg, "qsize": qsize, "items": items}
 
     async def _queue_item_execute_handler(self, request):
@@ -2707,6 +2800,8 @@ class RunEngineManager(Process):
             success, msg = True, ""
         except Exception as ex:
             success, msg = False, f"Error: {ex}"
+
+        self._status_update()
         return {"success": success, "msg": msg}
 
     async def _history_get_handler(self, request):
@@ -2728,20 +2823,35 @@ class RunEngineManager(Process):
 
     async def _history_clear_handler(self, request):
         """
-        Remove all entries from the plan history
+        Remove some or all entries from the plan history
         """
         logger.info("Clearing the plan execution history ...")
         try:
-            supported_param_names = ["lock_key"]
+            supported_param_names = ["lock_key", "size", "item_uid"]
             self._check_request_for_unsupported_params(request=request, param_names=supported_param_names)
 
             self._validate_lock_key(request.get("lock_key", None), check_queue=True)
 
-            await self._plan_queue.clear_history()
+            size = request.get("size", None)
+            item_uid = request.get("item_uid", None)
+            if size is not None and item_uid is not None:
+                raise ValueError("Parameters 'size' and 'item_uid' are mutually exclusive.")
+            elif size is not None:
+                if not isinstance(size, int):
+                    raise ValueError(f"The 'size' parameter must be an integer: size={size!r}")
+                await self._plan_queue.trim_history(new_size=size)
+            elif item_uid is not None:
+                if not isinstance(item_uid, str):
+                    raise ValueError(f"The 'item_uid' parameter must be a string: item_uid={item_uid!r}")
+                await self._plan_queue.trim_history(item_uid=item_uid)
+            else:
+                await self._plan_queue.clear_history()
+
             success, msg = True, ""
         except Exception as ex:
             success, msg = False, f"Error: {ex}"
 
+        self._status_update()
         return {"success": success, "msg": msg}
 
     async def _environment_open_handler(self, request):
@@ -3133,6 +3243,7 @@ class RunEngineManager(Process):
                 )
             if success:
                 self._re_pause_pending = True
+                self._status_update()
         except Exception as ex:
             success, msg = False, f"Error: {ex}"
 
@@ -3346,6 +3457,7 @@ class RunEngineManager(Process):
                     queue,
                     note,
                 )
+                self._status_update()
             else:
                 raise ValueError(f"RE Manager was locked with a different key: \n{self._lock_info.to_str()}")
 
@@ -3412,6 +3524,7 @@ class RunEngineManager(Process):
                 lock_info = self._format_lock_info()
                 lock_info_uid = self._lock_info.uid
                 await self._save_lock_info_to_redis()
+                self._status_update()
                 logger.info("RE Manager is successfully unlocked.")
             else:
                 lock_info = self._format_lock_info()
@@ -3613,14 +3726,34 @@ class RunEngineManager(Process):
     #          Functions that support communication via 0MQ
 
     async def _zmq_receive(self):
+        """
+        Wait for the next 0MQ packet. Retry recv operation if it fails with EAGAIN error.
+        """
         try:
-            msg_in = await self._zmq_socket.recv_json()
+            while True:
+                try:
+                    if self._zmq_encoding == ZMQEncoding.JSON:
+                        msg_in = await self._zmq_socket.recv_json()
+                    else:
+                        _ = await self._zmq_socket.recv()
+                        msg_in = msgpack.unpackb(_)
+                    break
+                except zmq.Again as ex:
+                    logger.debug(f"OMQ receive error ('AGAIN'): {ex}. Retrying ...")
+                    ttime.sleep(0.05)
+        except zmq.ZMQError as ex:
+            msg_in = f"0MQ receive error: {ex}. Error code: {ex.errno}"
         except Exception as ex:
-            msg_in = f"JSON decode error: {ex}"
+            _ = self._zmq_encoding.name
+            msg_in = f"{_} decode error: {ex}"
         return msg_in
 
     async def _zmq_send(self, msg):
-        await self._zmq_socket.send_json(msg)
+        if self._zmq_encoding == ZMQEncoding.JSON:
+            await self._zmq_socket.send_json(msg)
+        else:
+            _ = msgpack.packb(msg)
+            await self._zmq_socket.send(_)
 
     async def zmq_server_comm(self):
         """
@@ -3650,6 +3783,9 @@ class RunEngineManager(Process):
 
         # Start heartbeat generator
         self._heartbeat_generator_task = asyncio.ensure_future(self._heartbeat_generator(), loop=self._loop)
+        self._status_publish_periodic_task = asyncio.ensure_future(
+            self._status_publish_periodic(), loop=self._loop
+        )
         self._worker_status_task = asyncio.ensure_future(self._periodic_worker_state_request(), loop=self._loop)
 
         self._plan_queue = PlanQueueOperations(
@@ -3723,7 +3859,7 @@ class RunEngineManager(Process):
                     #   the queue is not running.
                     self._re_pause_pending = re_deferred_pause_requested
                     # Plan is running. Check if it is the same plan as in redis.
-                    plan_stored = await self._plan_queue.get_running_item_info()
+                    plan_stored = self._plan_queue.get_running_item_info()
                     if "item_uid" in plan_stored:
                         item_uid_stored = plan_stored["item_uid"]
                         if re_state in ("paused", "pausing"):
@@ -3784,6 +3920,9 @@ class RunEngineManager(Process):
         # Initialization is complete, enable the watchdog.
         await self._watchdog_enable()
 
+        # Update cached status the first time. The manager starts publishing status.
+        self._status_update()
+
         while True:
             #  Wait for next request from client
             msg_in = await self._zmq_receive()
@@ -3814,6 +3953,7 @@ class RunEngineManager(Process):
 
                 await self._watchdog_manager_stopping()
                 self._heartbeat_generator_task.cancel()
+                self._status_publish_periodic_task.cancel()
                 self._comm_to_watchdog.stop()
                 self._comm_to_worker.stop()
                 await self._plan_queue.stop()
