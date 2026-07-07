@@ -5201,8 +5201,12 @@ def test_prepare_plan_5(plan, from_nspace):
 # fmt: off
 _det_components = {
     "components": {
-        "Imax": {}, "center": {}, "noise": {},
-        "noise_multiplier": {}, "sigma": {}, "val": {},
+        "Imax": {},
+        "center": {},
+        "noise": {},
+        "noise_multiplier": {},
+        "sigma": {},
+        "val": {},
     }
 }
 
@@ -5233,7 +5237,10 @@ _stg_components = {
 
 _mtr_async_components = {
     "components": {
-        "acceleration_time": {}, "units": {}, "user_readback": {}, "user_setpoint": {}, "velocity": {}
+        "acceleration_time": {},
+        "user_readback": {},
+        "user_setpoint": {},
+        "velocity": {},
     }
 }
 
@@ -5365,6 +5372,8 @@ def test_prepare_devices_1(max_depth, registered_devices, expected_devices):
 
     clean_devices(existing_devices)
 
+    print(f"existing_devices: {pprint.pformat(existing_devices)}")
+    print(f"expected_devices: {pprint.pformat(expected_devices)}")
     assert existing_devices == expected_devices, pprint.pformat(existing_devices)
 
 
