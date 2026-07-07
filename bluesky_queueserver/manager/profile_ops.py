@@ -453,8 +453,12 @@ def load_startup_script(script_path, *, enable_local_imports=True, nspace=None):
             #   the script is executed again.
             for key in list(sys.modules.keys()):
                 if key not in sm_keys:
-                    # print(f"Deleting the key '{key}'")
-                    del sys.modules[key]
+                    # Make sure the module is local before deleting it.
+                    # Do not delete common library modules.
+                    fl = getattr(sys.modules[key], "__file__", None)
+                    if fl and fl.startswith(p):
+                        # print(f"Deleting the key '{key}'")
+                        del sys.modules[key]
 
             sys.path.remove(p)
 
@@ -653,8 +657,12 @@ def load_script_into_existing_nspace(
             #   the script is executed again.
             for key in list(sys.modules.keys()):
                 if key not in sm_keys:
-                    print(f"Deleting the key '{key}'")
-                    del sys.modules[key]
+                    # Make sure the module is local before deleting it.
+                    # Do not delete common library modules.
+                    fl = getattr(sys.modules[key], "__file__", None)
+                    if fl and fl.startswith(script_root_path):
+                        # print(f"Deleting the key '{key}'")
+                        del sys.modules[key]
 
             sys.path.remove(script_root_path)
 
