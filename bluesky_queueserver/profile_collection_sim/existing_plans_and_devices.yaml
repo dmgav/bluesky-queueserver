@@ -2061,7 +2061,7 @@ existing_plans:
     name: marked_up_count
     parameters:
     - annotation:
-        type: typing.List[typing.Any]
+        type: list[typing.Any]
       kind:
         name: POSITIONAL_OR_KEYWORD
         value: 1
@@ -2074,14 +2074,14 @@ existing_plans:
         value: 1
       name: num
     - annotation:
-        type: typing.Optional[float]
+        type: float | None
       default: None
       kind:
         name: POSITIONAL_OR_KEYWORD
         value: 1
       name: delay
     - annotation:
-        type: typing.Optional[typing.Dict[str, typing.Any]]
+        type: dict[str, typing.Any] | None
       default: None
       kind:
         name: POSITIONAL_OR_KEYWORD

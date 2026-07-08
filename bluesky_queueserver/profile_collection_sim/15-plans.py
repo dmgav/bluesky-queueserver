@@ -1,7 +1,7 @@
 # flake8: noqa
 print(f"Loading file {__file__!r}")
 
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from bluesky.plans import (
     adaptive_scan,
@@ -35,6 +35,6 @@ from bluesky.plans import (
 
 
 def marked_up_count(
-    detectors: List[Any], num: int = 1, delay: Optional[float] = None, md: Optional[Dict[str, Any]] = None
+    detectors: list[Any], num: int = 1, delay: float | None = None, md: dict[str, Any] | None = None
 ):
     return (yield from count(detectors, num=num, delay=delay, md=md))

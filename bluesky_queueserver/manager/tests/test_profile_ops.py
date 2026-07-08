@@ -1931,11 +1931,11 @@ _pf2f_processed = {
 
 
 def _pf2g(
-    val1: typing.Tuple[typing.Union[float, int]] = (50,),
-    val2: typing.Union[typing.List[str], str] = "some_str",
+    val1: typing.Tuple[float | int] = (50,),
+    val2: typing.List[str] | str = "some_str",
     val3: typing.Dict[str, int] = {"ab": 10, "cd": 50},
     val4: Dict[str, int] = {"ab": 10, "cd": 50},  # No module name 'typing'
-    val5: Optional[float] = None,  # typing.Optional[float] == typing.Union[float, NoneType]
+    val5: float | None = None,  # typing.Optional[float] == typing.Union[float, NoneType]
 ):
     yield from [val1, val2, val3, val4, val5]
 
@@ -1946,13 +1946,13 @@ _pf2g_processed = {
             "name": "val1",
             "kind": {"name": "POSITIONAL_OR_KEYWORD", "value": 1},
             "default": "(50,)",
-            "annotation": {"type": "typing.Tuple[typing.Union[float, int]]"},
+            "annotation": {"type": "typing.Tuple[float | int]"},
         },
         {
             "name": "val2",
             "kind": {"name": "POSITIONAL_OR_KEYWORD", "value": 1},
             "default": "'some_str'",
-            "annotation": {"type": "typing.Union[typing.List[str], str]"},
+            "annotation": {"type": "typing.List[str] | str"},
         },
         {
             "name": "val3",
@@ -1970,9 +1970,7 @@ _pf2g_processed = {
             "name": "val5",
             "kind": {"name": "POSITIONAL_OR_KEYWORD", "value": 1},
             "default": "None",
-            "annotation": {
-                "type": "typing.Optional[float]" if python_version >= (3, 9) else "typing.Union[float, NoneType]"
-            },
+            "annotation": {"type": "float | None"},
         },
     ],
     "properties": {"is_generator": True},
@@ -2118,13 +2116,13 @@ _pf2j_processed = {
             "name": "val8",
         },
         {
-            "annotation": {"type": "typing.Optional[__DEVICE__]"},
+            "annotation": {"type": "__DEVICE__ | None"},
             "convert_device_names": True,
             "kind": {"name": "POSITIONAL_OR_KEYWORD", "value": 1},
             "name": "val9",
         },
         {
-            "annotation": {"type": "typing.Union[__DEVICE__, list[__DEVICE__]]"},
+            "annotation": {"type": "__DEVICE__ | list[__DEVICE__]"},
             "convert_device_names": True,
             "kind": {"name": "POSITIONAL_OR_KEYWORD", "value": 1},
             "name": "val10",
@@ -2137,17 +2135,15 @@ _pf2j_processed = {
 def _pf2k(
     val1: typing.Callable,
     val2: typing.Callable[[int, float], str],
-    val3: typing.Union[
-        typing.Callable[[int, float], typing.Tuple[str, str]], typing.List[typing.Callable[[int, float], str]]
-    ],
-    val4: typing.Union[
-        collections.abc.Callable[[int, float], typing.Tuple[str, str]],
-        list[collections.abc.Callable[[int, float], str]],
-    ],
-    val5: typing.Union[
-        collections.abc.Callable[[int, typing.Callable[[int], int]], typing.Tuple[str, str]],
-        list[collections.abc.Callable[[int, float], str]],
-    ],
+    val3: typing.Callable[[int, float], typing.Tuple[str, str]] | typing.List[typing.Callable[[int, float], str]],
+    val4: (
+        collections.abc.Callable[[int, float], typing.Tuple[str, str]]
+        | list[collections.abc.Callable[[int, float], str]]
+    ),
+    val5: (
+        collections.abc.Callable[[int, typing.Callable[[int], int]], typing.Tuple[str, str]]
+        | list[collections.abc.Callable[[int, float], str]]
+    ),
 ):
     yield from [val1, val2, val3, val4, val5]
 
@@ -2167,19 +2163,19 @@ _pf2k_processed = {
             "name": "val2",
         },
         {
-            "annotation": {"type": "typing.Union[__CALLABLE__, typing.List[__CALLABLE__]]"},
+            "annotation": {"type": "__CALLABLE__ | typing.List[__CALLABLE__]"},
             "eval_expressions": True,
             "kind": {"name": "POSITIONAL_OR_KEYWORD", "value": 1},
             "name": "val3",
         },
         {
-            "annotation": {"type": "typing.Union[__CALLABLE__, list[__CALLABLE__]]"},
+            "annotation": {"type": "__CALLABLE__ | list[__CALLABLE__]"},
             "eval_expressions": True,
             "kind": {"name": "POSITIONAL_OR_KEYWORD", "value": 1},
             "name": "val4",
         },
         {
-            "annotation": {"type": "typing.Union[__CALLABLE__, list[__CALLABLE__]]"},
+            "annotation": {"type": "__CALLABLE__ | list[__CALLABLE__]"},
             "eval_expressions": True,
             "kind": {"name": "POSITIONAL_OR_KEYWORD", "value": 1},
             "name": "val5",
@@ -2192,7 +2188,7 @@ _pf2k_processed = {
 def _pf2l(
     val1: collections.abc.Iterable,
     val2: collections.abc.Iterable[int],
-    val3: Optional[typing.Union[collections.abc.Iterable, bool]],
+    val3: collections.abc.Iterable | bool | None,
 ):
     yield from [val1, val2, val3]
 
@@ -2210,7 +2206,7 @@ _pf2l_processed = {
             "name": "val2",
         },
         {
-            "annotation": {"type": "typing.Union[collections.abc.Iterable[typing.Any], bool, NoneType]"},
+            "annotation": {"type": "collections.abc.Iterable[typing.Any] | bool | None"},
             "kind": {"name": "POSITIONAL_OR_KEYWORD", "value": 1},
             "name": "val3",
         },
