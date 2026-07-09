@@ -1343,6 +1343,7 @@ def test_ip_kernel_interrupt_03(
     elif pause_option == "immediate":
         resp, _ = zmq_request("kernel_interrupt", params=params_interrupt)
         assert resp["success"] is True, pprint.pformat(resp)
+        ttime.sleep(0.2)  # Short pause between consecutive interrupt requests
         resp, _ = zmq_request("kernel_interrupt", params=params_interrupt)
         assert resp["success"] is True, pprint.pformat(resp)
     else:
