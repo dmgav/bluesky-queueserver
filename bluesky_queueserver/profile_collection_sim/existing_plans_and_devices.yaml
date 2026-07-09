@@ -1596,7 +1596,7 @@ existing_plans:
         value: 1
       name: backstep
     - annotation:
-        type: typing.Optional[float]
+        type: float | None
       default: '0.8'
       description: threshold for going backward and rescanning a region, default is
         0.8
@@ -1605,7 +1605,7 @@ existing_plans:
         value: 1
       name: threshold
     - annotation:
-        type: typing.Optional[dict[str, typing.Any]]
+        type: dict[str, typing.Any] | None
       default: None
       description: metadata
       kind:
@@ -1628,7 +1628,7 @@ existing_plans:
         value: 1
       name: detectors
     - annotation:
-        type: typing.Optional[int]
+        type: int | None
       default: '1'
       description: 'number of readings to take; default is 1
 
@@ -1639,7 +1639,7 @@ existing_plans:
         value: 1
       name: num
     - annotation:
-        type: typing.Union[float, collections.abc.Iterable[float]]
+        type: float | collections.abc.Iterable[float]
       default: '0.0'
       description: Time delay in seconds between successive readings; default is 0.
       kind:
@@ -1655,7 +1655,7 @@ existing_plans:
         value: 3
       name: per_shot
     - annotation:
-        type: typing.Optional[dict[str, typing.Any]]
+        type: dict[str, typing.Any] | None
       default: None
       description: metadata
       kind:
@@ -1786,7 +1786,7 @@ existing_plans:
         value: 1
       name: flyers
     - annotation:
-        type: typing.Optional[dict[str, typing.Any]]
+        type: dict[str, typing.Any] | None
       default: None
       description: metadata
       kind:
@@ -1813,7 +1813,7 @@ existing_plans:
         value: 2
       name: args
     - annotation:
-        type: typing.Union[collections.abc.Iterable[typing.Any], bool, NoneType]
+        type: collections.abc.Iterable[typing.Any] | bool | None
       default: None
       description: 'which axes should be snaked, either ``False`` (do not snake any
         axes),
@@ -1842,7 +1842,7 @@ existing_plans:
         value: 3
       name: per_step
     - annotation:
-        type: typing.Optional[dict[str, typing.Any]]
+        type: dict[str, typing.Any] | None
       default: None
       description: metadata
       kind:
@@ -1869,7 +1869,7 @@ existing_plans:
         value: 1
       name: num
     - annotation:
-        type: typing.Union[__MOVABLE__, typing.Any]
+        type: __MOVABLE__ | typing.Any
       convert_device_names: true
       kind:
         name: VAR_POSITIONAL
@@ -1881,7 +1881,7 @@ existing_plans:
         value: 3
       name: per_step
     - annotation:
-        type: typing.Optional[dict[str, typing.Any]]
+        type: dict[str, typing.Any] | None
       default: None
       kind:
         name: KEYWORD_ONLY
@@ -1903,7 +1903,7 @@ existing_plans:
         value: 1
       name: detectors
     - annotation:
-        type: typing.Union[__MOVABLE__, typing.Any]
+        type: __MOVABLE__ | typing.Any
       convert_device_names: true
       description: "patterned like (``motor1, position_list1,``\n                ``motor2,\
         \ position_list2,``\n                ``motor3, position_list3,``\n       \
@@ -1945,7 +1945,7 @@ existing_plans:
         value: 3
       name: per_step
     - annotation:
-        type: typing.Optional[dict[str, typing.Any]]
+        type: dict[str, typing.Any] | None
       default: None
       description: metadata
       kind:
@@ -1968,7 +1968,7 @@ existing_plans:
         value: 1
       name: detectors
     - annotation:
-        type: tuple[typing.Union[__MOVABLE__, typing.Any], list[typing.Any]]
+        type: tuple[__MOVABLE__ | typing.Any, list[typing.Any]]
       convert_device_names: true
       description: "For one dimension, ``motor, [point1, point2, ....]``.\nIn general:\n\
         \n.. code-block:: python\n\n    motor1, [point1, point2, ...],\n    motor2,\
@@ -1989,7 +1989,7 @@ existing_plans:
         value: 3
       name: per_step
     - annotation:
-        type: typing.Optional[dict[str, typing.Any]]
+        type: dict[str, typing.Any] | None
       default: None
       description: metadata
       kind:
@@ -2061,7 +2061,7 @@ existing_plans:
     name: marked_up_count
     parameters:
     - annotation:
-        type: typing.List[typing.Any]
+        type: list[typing.Any]
       kind:
         name: POSITIONAL_OR_KEYWORD
         value: 1
@@ -2074,14 +2074,14 @@ existing_plans:
         value: 1
       name: num
     - annotation:
-        type: typing.Optional[float]
+        type: float | None
       default: None
       kind:
         name: POSITIONAL_OR_KEYWORD
         value: 1
       name: delay
     - annotation:
-        type: typing.Optional[typing.Dict[str, typing.Any]]
+        type: dict[str, typing.Any] | None
       default: None
       kind:
         name: POSITIONAL_OR_KEYWORD
@@ -2140,7 +2140,7 @@ existing_plans:
     name: mv
     parameters:
     - annotation:
-        type: typing.Union[__MOVABLE__, typing.Any]
+        type: __MOVABLE__ | typing.Any
       convert_device_names: true
       description: device1, value1, device2, value2, ...
       kind:
@@ -2148,7 +2148,7 @@ existing_plans:
         value: 2
       name: args
     - annotation:
-        type: typing.Optional[collections.abc.Hashable]
+        type: collections.abc.Hashable | None
       default: None
       description: Used to mark these as a unit to be waited on.
       kind:
@@ -2156,7 +2156,7 @@ existing_plans:
         value: 3
       name: group
     - annotation:
-        type: typing.Optional[float]
+        type: float | None
       default: None
       description: Specify a maximum time that the move(s) can be waited for.
       kind:
@@ -2177,7 +2177,7 @@ existing_plans:
     name: mvr
     parameters:
     - annotation:
-        type: typing.Union[__MOVABLE__, typing.Any]
+        type: __MOVABLE__ | typing.Any
       convert_device_names: true
       description: device1, value1, device2, value2, ...
       kind:
@@ -2185,7 +2185,7 @@ existing_plans:
         value: 2
       name: args
     - annotation:
-        type: typing.Optional[collections.abc.Hashable]
+        type: collections.abc.Hashable | None
       default: None
       description: Used to mark these as a unit to be waited on.
       kind:
@@ -2193,7 +2193,7 @@ existing_plans:
         value: 3
       name: group
     - annotation:
-        type: typing.Optional[float]
+        type: float | None
       default: None
       description: Specify a maximum time that the move(s) can be waited for.
       kind:
@@ -2271,7 +2271,7 @@ existing_plans:
         value: 1
       name: take_pre_data
     - annotation:
-        type: typing.Optional[float]
+        type: float | None
       default: None
       description: 'If not None, the maximum time the ramp can run.
 
@@ -2282,7 +2282,7 @@ existing_plans:
         value: 1
       name: timeout
     - annotation:
-        type: typing.Optional[float]
+        type: float | None
       default: None
       description: 'If not None, take data no faster than this.  If None, take
 
@@ -2300,7 +2300,7 @@ existing_plans:
         value: 1
       name: period
     - annotation:
-        type: typing.Optional[dict[str, typing.Any]]
+        type: dict[str, typing.Any] | None
       default: None
       kind:
         name: POSITIONAL_OR_KEYWORD
@@ -2380,7 +2380,7 @@ existing_plans:
         value: 1
       name: backstep
     - annotation:
-        type: typing.Optional[float]
+        type: float | None
       default: '0.8'
       description: threshold for going backward and rescanning a region, default is
         0.8
@@ -2389,7 +2389,7 @@ existing_plans:
         value: 1
       name: threshold
     - annotation:
-        type: typing.Optional[dict[str, typing.Any]]
+        type: dict[str, typing.Any] | None
       default: None
       description: metadata
       kind:
@@ -2412,14 +2412,14 @@ existing_plans:
         value: 1
       name: detectors
     - annotation:
-        type: typing.Union[__MOVABLE__, typing.Any]
+        type: __MOVABLE__ | typing.Any
       convert_device_names: true
       kind:
         name: VAR_POSITIONAL
         value: 2
       name: args
     - annotation:
-        type: typing.Union[collections.abc.Iterable[typing.Any], bool, NoneType]
+        type: collections.abc.Iterable[typing.Any] | bool | None
       default: None
       description: 'which axes should be snaked, either ``False`` (do not snake any
         axes),
@@ -2448,7 +2448,7 @@ existing_plans:
         value: 3
       name: per_step
     - annotation:
-        type: typing.Optional[dict[str, typing.Any]]
+        type: dict[str, typing.Any] | None
       default: None
       description: metadata
       kind:
@@ -2474,7 +2474,7 @@ existing_plans:
         value: 1
       name: detectors
     - annotation:
-        type: typing.Union[__MOVABLE__, typing.Any]
+        type: __MOVABLE__ | typing.Any
       convert_device_names: true
       description: "patterned like (``motor1, position_list1,``\n                ``motor2,\
         \ position_list2,``\n                ``motor3, position_list3,``\n       \
@@ -2516,7 +2516,7 @@ existing_plans:
         value: 3
       name: per_step
     - annotation:
-        type: typing.Optional[dict[str, typing.Any]]
+        type: dict[str, typing.Any] | None
       default: None
       description: metadata
       kind:
@@ -2539,7 +2539,7 @@ existing_plans:
         value: 1
       name: detectors
     - annotation:
-        type: typing.Union[__MOVABLE__, typing.Any]
+        type: __MOVABLE__ | typing.Any
       convert_device_names: true
       description: "For one dimension, ``motor, [point1, point2, ....]``.\nIn general:\n\
         \n.. code-block:: python\n\n    motor1, [point1, point2, ...],\n    motor2,\
@@ -2559,7 +2559,7 @@ existing_plans:
         value: 3
       name: per_step
     - annotation:
-        type: typing.Optional[dict[str, typing.Any]]
+        type: dict[str, typing.Any] | None
       default: None
       description: metadata
       kind:
@@ -2619,7 +2619,7 @@ existing_plans:
         value: 3
       name: per_step
     - annotation:
-        type: typing.Optional[dict[str, typing.Any]]
+        type: dict[str, typing.Any] | None
       default: None
       description: metadata
       kind:
@@ -2642,7 +2642,7 @@ existing_plans:
         value: 1
       name: detectors
     - annotation:
-        type: typing.Union[__MOVABLE__, typing.Any]
+        type: __MOVABLE__ | typing.Any
       convert_device_names: true
       description: "For one dimension, ``motor, start, stop``.\nIn general:\n\n..\
         \ code-block:: python\n\n    motor1, start1, stop1,\n    motor2, start2, start2,\n\
@@ -2669,7 +2669,7 @@ existing_plans:
         value: 3
       name: per_step
     - annotation:
-        type: typing.Optional[dict[str, typing.Any]]
+        type: dict[str, typing.Any] | None
       default: None
       description: metadata
       kind:
@@ -2735,7 +2735,7 @@ existing_plans:
         value: 1
       name: nth
     - annotation:
-        type: typing.Optional[float]
+        type: float | None
       default: None
       description: 'Delta radius along the major axis of the ellipse. If None, it
 
@@ -2763,7 +2763,7 @@ existing_plans:
         value: 3
       name: per_step
     - annotation:
-        type: typing.Optional[dict[str, typing.Any]]
+        type: dict[str, typing.Any] | None
       default: None
       description: metadata
       kind:
@@ -2830,7 +2830,7 @@ existing_plans:
         value: 1
       name: factor
     - annotation:
-        type: typing.Optional[float]
+        type: float | None
       default: None
       description: 'Delta radius along the major axis of the ellipse, if not specifed
 
@@ -2840,7 +2840,7 @@ existing_plans:
         value: 3
       name: dr_y
     - annotation:
-        type: typing.Optional[float]
+        type: float | None
       default: '0.0'
       description: Tilt angle in radians, default 0.0
       kind:
@@ -2858,7 +2858,7 @@ existing_plans:
         value: 3
       name: per_step
     - annotation:
-        type: typing.Optional[dict[str, typing.Any]]
+        type: dict[str, typing.Any] | None
       default: None
       description: metadata
       kind:
@@ -2935,7 +2935,7 @@ existing_plans:
         value: 3
       name: per_step
     - annotation:
-        type: typing.Optional[dict[str, typing.Any]]
+        type: dict[str, typing.Any] | None
       default: None
       description: metadata
       kind:
@@ -2962,7 +2962,7 @@ existing_plans:
         value: 1
       name: num
     - annotation:
-        type: typing.Union[__MOVABLE__, typing.Any]
+        type: __MOVABLE__ | typing.Any
       convert_device_names: true
       kind:
         name: VAR_POSITIONAL
@@ -2974,7 +2974,7 @@ existing_plans:
         value: 3
       name: per_step
     - annotation:
-        type: typing.Optional[dict[str, typing.Any]]
+        type: dict[str, typing.Any] | None
       default: None
       kind:
         name: KEYWORD_ONLY
@@ -2996,7 +2996,7 @@ existing_plans:
         value: 1
       name: detectors
     - annotation:
-        type: typing.Union[__MOVABLE__, typing.Any]
+        type: __MOVABLE__ | typing.Any
       convert_device_names: true
       description: "For one dimension, ``motor, start, stop``.\nIn general:\n\n..\
         \ code-block:: python\n\n    motor1, start1, stop1,\n    motor2, start2, stop2,\n\
@@ -3007,7 +3007,7 @@ existing_plans:
         value: 2
       name: args
     - annotation:
-        type: typing.Optional[int]
+        type: int | None
       default: None
       description: number of points
       kind:
@@ -3025,7 +3025,7 @@ existing_plans:
         value: 3
       name: per_step
     - annotation:
-        type: typing.Optional[dict[str, typing.Any]]
+        type: dict[str, typing.Any] | None
       default: None
       description: metadata
       kind:
@@ -3062,7 +3062,7 @@ existing_plans:
         value: 3
       name: per_step
     - annotation:
-        type: typing.Optional[dict[str, typing.Any]]
+        type: dict[str, typing.Any] | None
       default: None
       description: metadata
       kind:
@@ -3166,7 +3166,7 @@ existing_plans:
         value: 1
       name: nth
     - annotation:
-        type: typing.Optional[float]
+        type: float | None
       default: None
       description: 'Delta radius along the major axis of the ellipse. If None, defaults
         to
@@ -3177,7 +3177,7 @@ existing_plans:
         value: 3
       name: dr_y
     - annotation:
-        type: typing.Optional[float]
+        type: float | None
       default: '0.0'
       description: Tilt angle in radians, default 0.0
       kind:
@@ -3195,7 +3195,7 @@ existing_plans:
         value: 3
       name: per_step
     - annotation:
-        type: typing.Optional[dict[str, typing.Any]]
+        type: dict[str, typing.Any] | None
       default: None
       description: metadata
       kind:
@@ -3276,7 +3276,7 @@ existing_plans:
         value: 1
       name: factor
     - annotation:
-        type: typing.Optional[float]
+        type: float | None
       default: None
       description: 'Delta radius along the major axis of the ellipse, if not specifed
 
@@ -3286,7 +3286,7 @@ existing_plans:
         value: 3
       name: dr_y
     - annotation:
-        type: typing.Optional[float]
+        type: float | None
       default: '0.0'
       description: Tilt angle in radians, default 0.0
       kind:
@@ -3304,7 +3304,7 @@ existing_plans:
         value: 3
       name: per_step
     - annotation:
-        type: typing.Optional[dict[str, typing.Any]]
+        type: dict[str, typing.Any] | None
       default: None
       description: metadata
       kind:
@@ -3395,7 +3395,7 @@ existing_plans:
         value: 3
       name: per_step
     - annotation:
-        type: typing.Optional[dict[str, typing.Any]]
+        type: dict[str, typing.Any] | None
       default: None
       description: metadata
       kind:
@@ -3481,7 +3481,7 @@ existing_plans:
         value: 1
       name: snake
     - annotation:
-        type: typing.Optional[dict[str, typing.Any]]
+        type: dict[str, typing.Any] | None
       default: None
       description: metadata
       kind:
@@ -3524,7 +3524,7 @@ existing_plans:
         value: 1
       name: step
     - annotation:
-        type: typing.Optional[dict[str, typing.Any]]
+        type: dict[str, typing.Any] | None
       default: None
       description: metadata
       kind:
@@ -3598,7 +3598,7 @@ existing_plans:
         value: 3
       name: per_step
     - annotation:
-        type: typing.Optional[dict[str, typing.Any]]
+        type: dict[str, typing.Any] | None
       default: None
       description: metadata
       kind:

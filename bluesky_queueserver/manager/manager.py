@@ -1763,6 +1763,7 @@ class RunEngineManager(Process):
             )
             success = response["status"] == "accepted"
             err_msg = response["err_msg"]
+
         except CommTimeoutError:
             success, err_msg = (None, "Timeout occurred while processing the request")
         return success, err_msg
