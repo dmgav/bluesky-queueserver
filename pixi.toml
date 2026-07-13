@@ -1,0 +1,15 @@
+[workspace]
+authors = ["Dmitri Gavrilov <gavrilov.dvs@gmail.com>"]
+channels = ["conda-forge"]
+name = "bluesky-queueserver"
+platforms = ["linux-64"]
+version = "0.0.24"
+
+[tasks]
+
+[dependencies]
+python = "*"
+pip = "*"
+
+[pypi-dependencies]
+bluesky-queueserver = { path = ".", editable = true, extras = ["dev"] }
