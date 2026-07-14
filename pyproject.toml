@@ -2,6 +2,7 @@
 requires = ["setuptools>=64", "setuptools_scm[toml]>=8"]
 build-backend = "setuptools.build_meta"
 
+[project]
 name = "bluesky-queueserver"
 classifiers = [
     "Development Status :: 3 - Alpha",
@@ -30,8 +31,8 @@ dependencies = [
     "requests",
 ]
 dynamic = ["version"]
-license.file = "LICENSE"
-readme = "README.md"
+license = { file = "LICENSE" }
+readme = "README.rst"
 requires-python = ">=3.10"
 
 [project.optional-dependencies]
@@ -66,7 +67,7 @@ dev = [
 [project.scripts]
 qserver = "bluesky_queueserver.manager.qserver_cli:qserver"
 start-re-manager = "bluesky_queueserver.manager.start_manager:start_manager"
-qserver-list-plans-devices = "bluesky_queueserver.manager.gen_lists:gen_list_of_plans_and_devices_cli",
+qserver-list-plans-devices = "bluesky_queueserver.manager.gen_lists:gen_list_of_plans_and_devices_cli"
 qserver-zmq-keys = "bluesky_queueserver.manager.qserver_cli:qserver_zmq_keys"
 qserver-clear-lock = "bluesky_queueserver.manager.qserver_cli:qserver_clear_lock"
 qserver-console = "bluesky_queueserver.manager.qserver_cli:qserver_console"
@@ -89,7 +90,10 @@ ignore_missing_imports = true # Ignore missing stubs in imported modules
 # Run pytest with all our checkers, and don't spam us with massive tracebacks on error
 # Don't collect the interactive directory which is intended for manual execution
 addopts = """
-    --tb=native -vv --doctest-modules --doctest-glob="*.rst" --ignore src/bluesky/tests/interactive
+    --tb=native -vv 
+    --doctest-modules 
+    --doctest-glob="*.rst" 
+    --ignore src/bluesky_queueserver/profile_collection_sim
     """
 # https://iscinumpy.gitlab.io/post/bound-version-constraints/#watch-for-warnings
 filterwarnings = [

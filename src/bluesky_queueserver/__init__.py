@@ -1,7 +1,4 @@
-from ._version import get_versions
-
-__version__ = get_versions()["version"]
-del get_versions
+from ._version import __version__
 
 from .manager.annotation_decorator import parameter_annotation_decorator  # noqa: E402, F401
 from .manager.comms import (  # noqa: E402, F401
