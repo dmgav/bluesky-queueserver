@@ -17,7 +17,6 @@ from bluesky_queueserver.manager.profile_tools import (
     set_re_worker_active,
 )
 
-from .common import re_manager_cmd  # noqa: F401
 from .common import (
     _user,
     _user_group,
@@ -26,6 +25,7 @@ from .common import (
     condition_manager_idle,
     copy_default_profile_collection,
     patch_first_startup_file,
+    re_manager_cmd,  # noqa: F401
     use_ipykernel_for_tests,
     wait_for_condition,
     zmq_request,

@@ -183,15 +183,27 @@ def test_spreadsheet_to_plan_list_1(tmp_path, ext):
     #   with mixed types). Also check if all possible types are handled correctly.
     extra_plans = [
         {"name": "count", "args": [["det2"]], "kwargs": {"num": 2, "extra_param": 50}, "item_type": "plan"},
-        {"name": "count", "args": [["det2"]], "kwargs": {
-            "num": 2, "extra_param": "some_str"}, "item_type": "plan"},
+        {
+            "name": "count",
+            "args": [["det2"]],
+            "kwargs": {"num": 2, "extra_param": "some_str"},
+            "item_type": "plan",
+        },
         {"name": "count", "args": [["det2"]], "kwargs": {"num": 2, "extra_param": 50.256}, "item_type": "plan"},
         {"name": "count", "args": [["det2"]], "kwargs": {"num": 2, "extra_param": None}, "item_type": "plan"},
         {"name": "count", "args": [["det2"]], "kwargs": {"num": 2, "extra_param": ""}, "item_type": "plan"},
-        {"name": "count", "args": [["det2"]], "kwargs": {
-            "num": 2, "extra_param": [10, 20, 30]}, "item_type": "plan"},
-        {"name": "count", "args": [["det2"]], "kwargs": {"num": 2, "extra_param": {
-            "p1": 10, "p2": "10", "p3": 50}}, "item_type": "plan"},
+        {
+            "name": "count",
+            "args": [["det2"]],
+            "kwargs": {"num": 2, "extra_param": [10, 20, 30]},
+            "item_type": "plan",
+        },
+        {
+            "name": "count",
+            "args": [["det2"]],
+            "kwargs": {"num": 2, "extra_param": {"p1": 10, "p2": "10", "p3": 50}},
+            "item_type": "plan",
+        },
     ]
 
     plan_list = copy.deepcopy(plan_list_sample)  # We are going to change the plans

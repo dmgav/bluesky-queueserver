@@ -767,16 +767,14 @@ def start_manager():
 
     if not settings.existing_plans_and_devices_path:
         logger.error(
-            "The path to the list of existing plans and devices (--existing-plans-and-devices) "
-            "is not specified."
+            "The path to the list of existing plans and devices (--existing-plans-and-devices) is not specified."
         )
         ttime.sleep(0.01)
         return 1
 
     if not settings.user_group_permissions_path:
         logger.error(
-            "The path to the file containing user group permissions (--user-group-permissions) "
-            "is not specified."
+            "The path to the file containing user group permissions (--user-group-permissions) is not specified."
         )
         ttime.sleep(0.01)
         return 1

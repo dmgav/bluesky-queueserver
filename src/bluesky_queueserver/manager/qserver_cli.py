@@ -989,7 +989,7 @@ def create_msg(params, *, lock_key):
 
             file_name = params[1]
             try:
-                with open(file_name, "r") as f:
+                with open(file_name) as f:
                     permissions_yaml = f.read()
                 permissions_dict = yaml.load(permissions_yaml, Loader=yaml.FullLoader)
             except Exception as ex:
@@ -1011,7 +1011,7 @@ def create_msg(params, *, lock_key):
             # Parameter 1 (required) - file name, parameter 2 (optional) - 'background'
             file_name = params[1]
             try:
-                with open(file_name, "r") as f:
+                with open(file_name) as f:
                     script = f.read()
             except Exception as ex:
                 raise CommandParameterError(

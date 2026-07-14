@@ -69,13 +69,13 @@ from bluesky_queueserver.manager.profile_ops import (
     validate_plan,
 )
 
-from .common import reset_sys_modules  # noqa: F401
 from .common import (
     _user_group,
     append_code_to_last_startup_file,
     copy_default_profile_collection,
     patch_first_startup_file,
     remove_run_engine_config_from_startup,
+    reset_sys_modules,  # noqa: F401
 )
 
 python_version = sys.version_info  # Can be compare to tuples (such as 'python_version >= (3, 9)')
@@ -325,18 +325,18 @@ def test_load_profile_collection_04_fail(tmp_path):
     """
     # Non-existing path
     pc_path = os.path.join(tmp_path, "abc")
-    with pytest.raises(IOError, match="Path .+ does not exist"):
+    with pytest.raises(OSError, match="Path .+ does not exist"):
         load_profile_collection(pc_path)
 
     # 'Empty' profile collection (no startup files)
-    with pytest.raises(IOError, match="The directory .+ contains no startup files"):
+    with pytest.raises(OSError, match="The directory .+ contains no startup files"):
         load_profile_collection(tmp_path)
 
     pc_path = os.path.join(tmp_path, "test.txt")
     # Create a file
     with open(pc_path, "w"):
         pass
-    with pytest.raises(IOError, match="Path .+ is not a directory"):
+    with pytest.raises(OSError, match="Path .+ is not a directory"):
         load_profile_collection(pc_path)
 
 
@@ -6102,7 +6102,7 @@ def test_load_user_group_permissions_2_fail(tmp_path):
     os.makedirs(path_to_file, exist_ok=True)
     path_to_file = os.path.join(path_to_file, "user_permissions.yaml")
 
-    with pytest.raises(IOError, match=f"File '{path_to_file}' does not exist"):
+    with pytest.raises(OSError, match=f"File '{path_to_file}' does not exist"):
         load_user_group_permissions(path_to_file)
 
 
@@ -6120,7 +6120,7 @@ def test_load_user_group_permissions_3_fail(tmp_path):
     with open(path_to_file, "w") as f:
         yaml.dump(ug_dict, f)
 
-    with pytest.raises(IOError, match="Additional properties are not allowed"):
+    with pytest.raises(OSError, match="Additional properties are not allowed"):
         load_user_group_permissions(path_to_file)
 
 
@@ -6138,7 +6138,7 @@ def test_load_user_group_permissions_4_fail(tmp_path):
     with open(path_to_file, "w") as f:
         yaml.dump(ug_dict, f)
 
-    with pytest.raises(IOError, match="Additional properties are not allowed"):
+    with pytest.raises(OSError, match="Additional properties are not allowed"):
         load_user_group_permissions(path_to_file)
 
 
@@ -6157,7 +6157,7 @@ def test_load_user_group_permissions_5_fail(tmp_path, group_to_delete):
     with open(path_to_file, "w") as f:
         yaml.dump(ug_dict, f)
 
-    with pytest.raises(IOError, match="Missing required user group"):
+    with pytest.raises(OSError, match="Missing required user group"):
         load_user_group_permissions(path_to_file)
 
 
@@ -6175,7 +6175,7 @@ def test_load_user_group_permissions_6_fail(tmp_path):
     with open(path_to_file, "w") as f:
         yaml.dump(ug_dict, f)
 
-    with pytest.raises(IOError, match="is not of type 'string'"):
+    with pytest.raises(OSError, match="is not of type 'string'"):
         load_user_group_permissions(path_to_file)
 
 

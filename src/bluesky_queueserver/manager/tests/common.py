@@ -97,7 +97,7 @@ def patch_first_startup_file(pc_path, additional_code):
     if not os.path.exists(fln_tmp):
         shutil.copy(fln, fln_tmp)
 
-    with open(fln, "r") as file_in:
+    with open(fln) as file_in:
         code = file_in.readlines()
 
     with open(fln, "w") as file_out:
@@ -146,7 +146,7 @@ def append_code_to_last_startup_file(pc_path, additional_code):
     if not os.path.exists(fln_tmp):
         shutil.copy(fln, fln_tmp)
 
-    with open(fln, "r") as file_in:
+    with open(fln) as file_in:
         code = file_in.readlines()
 
     with open(fln, "w") as file_out:

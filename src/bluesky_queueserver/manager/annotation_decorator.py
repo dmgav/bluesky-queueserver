@@ -305,7 +305,7 @@ def parameter_annotation_decorator(annotation):
             )
             raise ValueError(msg)
 
-        setattr(wrapper, "_custom_parameter_annotation_", annotation)
+        wrapper._custom_parameter_annotation_ = annotation
 
         return wrapper
 

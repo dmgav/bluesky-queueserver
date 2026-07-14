@@ -7,7 +7,6 @@ import pytest
 
 from bluesky_queueserver import gen_list_of_plans_and_devices
 
-from .common import re_manager_cmd  # noqa: F401
 from .common import (
     _user,
     _user_group,
@@ -16,6 +15,7 @@ from .common import (
     condition_environment_created,
     condition_queue_processing_finished,
     copy_default_profile_collection,
+    re_manager_cmd,  # noqa: F401
     wait_for_condition,
     zmq_request,
 )

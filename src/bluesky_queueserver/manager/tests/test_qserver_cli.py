@@ -66,9 +66,9 @@ def test_qserver_cli_and_manager(re_manager):  # noqa: F811
     """
     Long test runs a series of CLI commands.
     """
-    assert wait_for_condition(
-        time=3, condition=condition_manager_idle
-    ), "Timeout while waiting for manager to initialize."
+    assert wait_for_condition(time=3, condition=condition_manager_idle), (
+        "Timeout while waiting for manager to initialize."
+    )
 
     # Clear queue
     assert sp_call(["qserver", "queue", "clear"]) == SUCCESS
@@ -119,24 +119,24 @@ def test_qserver_cli_and_manager(re_manager):  # noqa: F811
     assert sp_call(["qserver", "queue", "start"]) == SUCCESS
     ttime.sleep(1)
     assert sp_call(["qserver", "re", "pause", "immediate"]) == SUCCESS
-    assert wait_for_condition(
-        time=60, condition=condition_manager_paused
-    ), "Timeout while waiting for manager to pause"
+    assert wait_for_condition(time=60, condition=condition_manager_paused), (
+        "Timeout while waiting for manager to pause"
+    )
 
     assert sp_call(["qserver", "re", "resume"]) == SUCCESS
     ttime.sleep(1)
     assert sp_call(["qserver", "re", "pause", "deferred"]) == SUCCESS
-    assert wait_for_condition(
-        time=60, condition=condition_manager_paused
-    ), "Timeout while waiting for manager to pause"
+    assert wait_for_condition(time=60, condition=condition_manager_paused), (
+        "Timeout while waiting for manager to pause"
+    )
 
     assert sp_call(["qserver", "re", "resume"]) == SUCCESS
 
     assert sp_call(["qserver", "re", "metadata"]) == SUCCESS
 
-    assert wait_for_condition(
-        time=60, condition=condition_queue_processing_finished
-    ), "Timeout while waiting for process to finish"
+    assert wait_for_condition(time=60, condition=condition_queue_processing_finished), (
+        "Timeout while waiting for process to finish"
+    )
 
     assert sp_call(["qserver", "queue", "add", "plan", plan_1]) == SUCCESS
     assert sp_call(["qserver", "queue", "add", "plan", plan_1]) == SUCCESS
@@ -146,9 +146,9 @@ def test_qserver_cli_and_manager(re_manager):  # noqa: F811
 
     assert sp_call(["qserver", "queue", "start"]) == SUCCESS
 
-    assert wait_for_condition(
-        time=60, condition=condition_queue_processing_finished
-    ), "Timeout while waiting for process to finish"
+    assert wait_for_condition(time=60, condition=condition_queue_processing_finished), (
+        "Timeout while waiting for process to finish"
+    )
 
     # Test 'killing' the manager during running plan. Load long plan and two short ones.
     #   The tests checks if execution of the queue is continued uninterrupted after
@@ -163,23 +163,23 @@ def test_qserver_cli_and_manager(re_manager):  # noqa: F811
     ttime.sleep(1)
     assert sp_call(["qserver", "manager", "kill", "test"]) != SUCCESS
     ttime.sleep(6)  # Don't request the condition to avoid timeout error TODO: wait for the server
-    assert wait_for_condition(
-        time=60, condition=condition_queue_processing_finished
-    ), "Timeout while waiting for process to finish"
+    assert wait_for_condition(time=60, condition=condition_queue_processing_finished), (
+        "Timeout while waiting for process to finish"
+    )
 
     assert sp_call(["qserver", "environment", "close"]) == SUCCESS
-    assert wait_for_condition(
-        time=5, condition=condition_environment_closed
-    ), "Timeout while waiting for environment to be closed"
+    assert wait_for_condition(time=5, condition=condition_environment_closed), (
+        "Timeout while waiting for environment to be closed"
+    )
 
 
 def test_qserver_environment_close(re_manager):  # noqa: F811
     """
     Test for `environment_close` command
     """
-    assert wait_for_condition(
-        time=3, condition=condition_manager_idle
-    ), "Timeout while waiting for manager to initialize."
+    assert wait_for_condition(time=3, condition=condition_manager_idle), (
+        "Timeout while waiting for manager to initialize."
+    )
 
     # Clear queue
     assert sp_call(["qserver", "queue", "clear"]) == SUCCESS
@@ -203,9 +203,9 @@ def test_qserver_environment_close(re_manager):  # noqa: F811
     # Call is expected to fail, because a plan is currently running
     assert sp_call(["qserver", "environment", "close"]) != SUCCESS
 
-    assert wait_for_condition(
-        time=60, condition=condition_queue_processing_finished
-    ), "Timeout while waiting for process to finish"
+    assert wait_for_condition(time=60, condition=condition_queue_processing_finished), (
+        "Timeout while waiting for process to finish"
+    )
 
     n_plans, is_plan_running, n_history = get_queue_state()
     assert n_plans == 0, "Incorrect number of plans in the queue"
@@ -214,18 +214,18 @@ def test_qserver_environment_close(re_manager):  # noqa: F811
 
     # Now we can close the environment because plan execution is complete
     assert sp_call(["qserver", "environment", "close"]) == SUCCESS
-    assert wait_for_condition(
-        time=5, condition=condition_environment_closed
-    ), "Timeout while waiting for environment to be closed"
+    assert wait_for_condition(time=5, condition=condition_environment_closed), (
+        "Timeout while waiting for environment to be closed"
+    )
 
 
 def test_qserver_environment_destroy(re_manager):  # noqa: F811
     """
     Test for `environment_destroy` command
     """
-    assert wait_for_condition(
-        time=3, condition=condition_manager_idle
-    ), "Timeout while waiting for manager to initialize."
+    assert wait_for_condition(time=3, condition=condition_manager_idle), (
+        "Timeout while waiting for manager to initialize."
+    )
 
     # Clear queue
     assert sp_call(["qserver", "queue", "clear"]) == SUCCESS
@@ -247,9 +247,9 @@ def test_qserver_environment_destroy(re_manager):  # noqa: F811
     assert is_plan_running is True
 
     assert sp_call(["qserver", "environment", "destroy"]) == SUCCESS
-    assert wait_for_condition(
-        time=3, condition=condition_manager_idle
-    ), "Timeout while waiting for environment to be destroyed."
+    assert wait_for_condition(time=3, condition=condition_manager_idle), (
+        "Timeout while waiting for environment to be destroyed."
+    )
 
     n_plans, is_plan_running, _ = get_queue_state()
     assert n_plans == 1, "Incorrect number of plans in the queue"
@@ -264,9 +264,9 @@ def test_qserver_environment_destroy(re_manager):  # noqa: F811
     assert n_plans == 0, "Incorrect number of plans in the queue"
     assert is_plan_running is True
 
-    assert wait_for_condition(
-        time=60, condition=condition_queue_processing_finished
-    ), "Timeout while waiting for process to finish"
+    assert wait_for_condition(time=60, condition=condition_queue_processing_finished), (
+        "Timeout while waiting for process to finish"
+    )
 
     n_plans, is_plan_running, n_history = get_queue_state()
     assert n_plans == 0, "Incorrect number of plans in the queue"
@@ -274,9 +274,9 @@ def test_qserver_environment_destroy(re_manager):  # noqa: F811
     assert n_history == 2
 
     assert sp_call(["qserver", "environment", "close"]) == SUCCESS
-    assert wait_for_condition(
-        time=5, condition=condition_environment_closed
-    ), "Timeout while waiting for environment to be closed"
+    assert wait_for_condition(time=5, condition=condition_environment_closed), (
+        "Timeout while waiting for environment to be closed"
+    )
 
 
 # fmt: off

@@ -194,9 +194,7 @@ class PlanQueueOperations:
             missing_keys.remove(k)
             key_type = expected_params.get(k)  # Using [k] makes PyCharm to display annoying error
             if not isinstance(v, key_type):
-                raise TypeError(
-                    f"Unsupported type '{type(v)}' of the parameter '{k}': " f"expected type '{key_type}'"
-                )
+                raise TypeError(f"Unsupported type '{type(v)}' of the parameter '{k}': expected type '{key_type}'")
         if missing_keys:
             raise ValueError(
                 f"Parameters {missing_keys} are missing from 'plan_queue_mode' dictionary. "

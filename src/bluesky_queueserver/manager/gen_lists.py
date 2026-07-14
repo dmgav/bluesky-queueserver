@@ -320,7 +320,7 @@ def gen_list_of_plans_and_devices(
 
     try:
         if startup_script_path and not os.path.isfile(startup_script_path):
-            raise IOError(f"Startup script {startup_script_path!r} is not found")
+            raise OSError(f"Startup script {startup_script_path!r} is not found")
 
         if startup_module_name and importlib.util.find_spec(startup_module_name) is None:
             raise ImportError(f"Startup module {startup_module_name!r} is not found")

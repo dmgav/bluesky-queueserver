@@ -5,10 +5,10 @@ import pytest
 
 from bluesky_queueserver.manager.output_streaming import ReceiveSystemInfo, _default_zmq_info_topic
 
-from .common import re_manager_cmd  # noqa: F401
 from .common import (
     condition_environment_closed,
     condition_environment_created,
+    re_manager_cmd,  # noqa: F401
     use_zmq_encoding_for_tests,
     wait_for_condition,
     zmq_request,

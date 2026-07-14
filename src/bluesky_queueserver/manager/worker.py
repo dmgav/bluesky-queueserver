@@ -1145,7 +1145,7 @@ class RunEngineWorker(Process):
                 err_msg = str(ex)
         else:
             status = "rejected"
-            err_msg = "Run engine can be paused only in 'running' state. " f"Current state: '{self.re_state}'"
+            err_msg = f"Run engine can be paused only in 'running' state. Current state: '{self.re_state}'"
 
         msg_out = {"status": status, "err_msg": err_msg}
         return msg_out
@@ -1786,7 +1786,7 @@ class RunEngineWorker(Process):
                 #   the file is corrupt.
                 if os.path.isfile(abs_cf_name):
                     try:
-                        with open(abs_cf_name, "r") as f:
+                        with open(abs_cf_name) as f:
                             cn_info = json.load(f)
 
                         def _check_value(value, key):

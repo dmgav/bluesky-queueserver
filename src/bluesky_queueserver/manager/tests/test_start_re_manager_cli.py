@@ -11,7 +11,6 @@ import yaml
 from bluesky_queueserver import gen_list_of_plans_and_devices
 from bluesky_queueserver.manager.config import default_existing_pd_fln, default_user_group_pd_fln
 
-from .common import re_manager_cmd  # noqa: F401
 from .common import (
     _test_redis_name_prefix,
     _user,
@@ -24,6 +23,7 @@ from .common import (
     condition_queue_processing_finished,
     copy_default_profile_collection,
     get_manager_status,
+    re_manager_cmd,  # noqa: F401
     set_qserver_zmq_address,
     set_qserver_zmq_encoding,
     set_qserver_zmq_public_key,
@@ -790,7 +790,7 @@ def test_manager_with_config_file_01(
     state = get_manager_status(encoding=zmq_encoding)
     assert state["manager_state"] == "idle"
 
-    with open(save_settings_path, "r") as f:
+    with open(save_settings_path) as f:
         current_settings = yaml.load(f, Loader=yaml.FullLoader)
 
     # Remove 'startup_dir' from the settings dictionaries and compare them

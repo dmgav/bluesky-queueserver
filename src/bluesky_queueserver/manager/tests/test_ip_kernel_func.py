@@ -3,10 +3,6 @@ import time as ttime
 
 import pytest
 
-from .common import ip_kernel_simple_client  # noqa: F401
-from .common import re_manager  # noqa: F401
-from .common import re_manager_cmd  # noqa: F401
-from .common import re_manager_factory  # noqa: F401
 from .common import (
     _user,
     _user_group,
@@ -21,6 +17,10 @@ from .common import (
     condition_queue_processing_finished,
     copy_default_profile_collection,
     get_manager_status,
+    ip_kernel_simple_client,  # noqa: F401
+    re_manager,  # noqa: F401
+    re_manager_cmd,  # noqa: F401
+    re_manager_factory,  # noqa: F401
     use_ipykernel_for_tests,
     wait_for_condition,
     wait_for_task_result,

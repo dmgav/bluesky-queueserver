@@ -1864,8 +1864,10 @@ def test_zmq_api_queue_item_update_2_fail(re_manager, replace):  # noqa F811
 
     resp2, _ = zmq_request("queue_item_update", params)
     assert resp2["success"] is False
-    assert resp2["msg"] == "Failed to add an item: Failed to replace item: " \
-                           "Item with UID 'incorrect_uid' is not in the queue"
+    assert (
+        resp2["msg"] == "Failed to add an item: Failed to replace item: "
+        "Item with UID 'incorrect_uid' is not in the queue"
+    )
 
     resp3, _ = zmq_request("queue_get")
     assert resp3["items"] != []
@@ -1896,8 +1898,10 @@ def test_zmq_api_queue_item_update_3_fail(re_manager, replace):  # noqa F811
 
     resp2, _ = zmq_request("queue_item_update", params)
     assert resp2["success"] is False
-    assert resp2["msg"] == "Failed to add an item: Failed to replace item: " \
-                           "Item with UID 'incorrect_uid' is not in the queue"
+    assert (
+        resp2["msg"] == "Failed to add an item: Failed to replace item: "
+        "Item with UID 'incorrect_uid' is not in the queue"
+    )
 
     resp3, _ = zmq_request("queue_get")
     assert resp3["items"] == []
@@ -2516,7 +2520,7 @@ def test_zmq_api_script_upload_06(tmp_path, re_manager_cmd):  # noqa: F811
     default_files = glob.glob(os.path.join(default_pc_path, "*.py"))
     default_files.sort()
     for fn in default_files:
-        with open(fn, "r") as f:
+        with open(fn) as f:
             script = f.read()
             resp3, _ = zmq_request("script_upload", params={"script": script, "update_re": True})
             assert resp3["success"] is True
@@ -3031,7 +3035,7 @@ def test_zmq_api_task_status_1(re_manager):  # noqa: F811
     resp5, _ = zmq_request("task_status", params={"task_uid": task_uids})
     assert resp5["success"] is True
     assert resp5["msg"] == ""
-    assert resp5["status"] == {_: "running" for _ in task_uids}
+    assert resp5["status"] == dict.fromkeys(task_uids, "running")
 
     result = wait_for_task_result(10, task_uids[-1])
     assert result["success"] is True, pprint.pformat(result)

@@ -866,7 +866,7 @@ class RunEngineManager(Process):
 
         if state not in (MState.IDLE, MState.PAUSED):
             raise ValueError(
-                f"Attempting to set invalid state: {state!r}. " "Only 'idle' or 'paused' states are allowed."
+                f"Attempting to set invalid state: {state!r}. Only 'idle' or 'paused' states are allowed."
             )
 
         if self._use_ipython_kernel:
@@ -3507,7 +3507,7 @@ class RunEngineManager(Process):
 
                 await self._save_lock_info_to_redis()
                 logger.info(
-                    "RE Manager was locked by the user '%s': environment=%s " "queue=%s. Note: %s",
+                    "RE Manager was locked by the user '%s': environment=%s queue=%s. Note: %s",
                     user_name,
                     environment,
                     queue,

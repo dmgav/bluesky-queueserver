@@ -5,10 +5,10 @@ import pytest
 from bluesky_queueserver import generate_zmq_keys
 
 from ..qserver_cli import QServerExitCodes
-from .common import re_manager_cmd  # noqa: F401
 from .common import (
     condition_environment_closed,
     condition_environment_created,
+    re_manager_cmd,  # noqa: F401
     set_qserver_zmq_address,
     set_qserver_zmq_public_key,
     use_ipykernel_for_tests,

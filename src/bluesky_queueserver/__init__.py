@@ -1,5 +1,4 @@
 from ._version import __version__
-
 from .manager.annotation_decorator import parameter_annotation_decorator  # noqa: E402, F401
 from .manager.comms import (  # noqa: E402, F401
     CommTimeoutError,
@@ -16,17 +15,19 @@ from .manager.output_streaming import (  # noqa: E402, F401
     ReceiveSystemInfo,
     ReceiveSystemInfoAsync,
 )
-from .manager.profile_ops import bind_plan_arguments  # noqa: E402, F401
-from .manager.profile_ops import construct_parameters  # noqa: E402, F401
-from .manager.profile_ops import format_text_descriptions  # noqa: E402, F401
-from .manager.profile_ops import register_device  # noqa: E402, F401
-from .manager.profile_ops import register_plan  # noqa: E402, F401
-from .manager.profile_ops import validate_plan  # noqa: E402, F401
-from .manager.profile_tools import is_ipython_mode  # noqa: E402, F401
-from .manager.profile_tools import is_re_worker_active  # noqa: E402, F401
+from .manager.profile_ops import (
+    bind_plan_arguments,  # noqa: E402, F401
+    construct_parameters,  # noqa: E402, F401
+    format_text_descriptions,  # noqa: E402, F401
+    register_device,  # noqa: E402, F401
+    register_plan,  # noqa: E402, F401
+    validate_plan,  # noqa: E402, F401
+)
 from .manager.profile_tools import (  # noqa: E402, F401
     clear_ipython_mode,
     clear_re_worker_active,
+    is_ipython_mode,  # noqa: E402, F401
+    is_re_worker_active,  # noqa: E402, F401
     set_ipython_mode,
     set_re_worker_active,
 )

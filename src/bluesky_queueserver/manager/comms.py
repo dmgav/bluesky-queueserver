@@ -466,7 +466,7 @@ class PipeJsonRpcSendAsync:
                             # Server Error (issue with execution of the method)
                             err_type = response["error"]["data"]["type"]
                             # Message: "Server error: <message text>"
-                            err_msg = f'{response["error"]["message"]}: {response["error"]["data"]["message"]}'
+                            err_msg = f"{response['error']['message']}: {response['error']['data']['message']}"
                         else:
                             # Other json-rpc errors
                             err_type = "CommJsonRpcError"
@@ -474,7 +474,7 @@ class PipeJsonRpcSendAsync:
                         raise CommJsonRpcError(err_msg, error_code=err_code, error_type=err_type)
                     else:
                         err_msg = (
-                            f"Message {ppfl(msg)}\n" f"resulted in response with unknown format: {ppfl(response)}"
+                            f"Message {ppfl(msg)}\nresulted in response with unknown format: {ppfl(response)}"
                         )
                         raise RuntimeError(err_msg)
                 else:

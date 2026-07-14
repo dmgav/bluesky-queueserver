@@ -221,13 +221,12 @@ def load_devices_from_happi(device_names, *, namespace, **kwargs):
     # Verify that 'device_names' has correct type
     if not isinstance(device_names, (tuple, list)):
         raise TypeError(
-            "Parameter 'device_names' value must be a tuple or a list: "
-            f"type(device_names) = {type(device_names)}"
+            f"Parameter 'device_names' value must be a tuple or a list: type(device_names) = {type(device_names)}"
         )
     for n, name in enumerate(device_names):
         if not isinstance(name, (str, tuple, list)):
             raise TypeError(
-                f"Parameter 'device_names': element #{n} must be str, tuple or list: " f"device_names[n] = {name}"
+                f"Parameter 'device_names': element #{n} must be str, tuple or list: device_names[n] = {name}"
             )
         if isinstance(name, (tuple, list)):
             if len(name) != 2 or not isinstance(name[0], str) or not isinstance(name[1], str):
@@ -259,8 +258,7 @@ def load_devices_from_happi(device_names, *, namespace, **kwargs):
         res = client.search(**search_params)
         if not res:
             raise RuntimeError(
-                f"No devices with name '{name_db}' were found in Happi database. "
-                f"Search parameters {search_params}"
+                f"No devices with name '{name_db}' were found in Happi database. Search parameters {search_params}"
             )
         elif len(res) > 1:
             raise RuntimeError(
@@ -282,9 +280,9 @@ def load_devices_from_happi(device_names, *, namespace, **kwargs):
                 #   is a good idea to change it as well for consistency. We don't touch `_id`.
                 # The modified data is not expected to be saved to the database.
                 if hasattr(r, "_item"):
-                    setattr(r._item, "name", name_ns)
+                    r._item.name = name_ns
                 else:  # Remove this after happi with versions older than v1.14.0 become obsolete
-                    setattr(r._device, "name", name_ns)
+                    r._device.name = name_ns
                 r.metadata["name"] = name_ns
             # Instantiate the object
             results.append(r)

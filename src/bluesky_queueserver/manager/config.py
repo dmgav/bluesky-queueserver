@@ -305,8 +305,7 @@ def get_profile_name_from_path(startup_dir):
 
     if not profile_name or not ip_dir:
         raise ConfigError(
-            "Failed to extract IPython directory and profile "
-            f"name from startup directory name: {startup_dir!r}."
+            f"Failed to extract IPython directory and profile name from startup directory name: {startup_dir!r}."
         )
 
     return profile_name, ip_dir
