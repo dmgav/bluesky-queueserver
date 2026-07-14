@@ -513,15 +513,15 @@ class ReManager:
         # Set logging level for RE Manager unless it is already set in parameters
         #   Leads to excessive output and some tests may fail at tearup. Enable only when needed.
         logging_levels = ("--verbose", "--quiet", "--silent")
-        if not any([_ in params for _ in logging_levels]):
+        if not any(_ in params for _ in logging_levels):
             params.append("--verbose")
 
         # Start the manager with IPython kernel if the
-        if not any([_.startswith("--use-ipython-kernel") for _ in params]) and use_ipykernel_for_tests():
+        if not any(_.startswith("--use-ipython-kernel") for _ in params) and use_ipykernel_for_tests():
             params.append("--use-ipython-kernel=ON")
 
         # Set the encoding for 0MQ communication
-        if not any([_.startswith("--zmq-encoding") for _ in params]):
+        if not any(_.startswith("--zmq-encoding") for _ in params):
             params.append(f"--zmq-encoding={use_zmq_encoding_for_tests()}")
         # Remove --zmq-encoding=0   # Do not pass the parameter at all
         if "--zmq-encoding=0" in params:

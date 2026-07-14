@@ -3387,7 +3387,7 @@ def test_zmq_api_function_execute_5(
     resp4, msg_err = zmq_request("function_execute", params={"item": func_info, **params})
     if not success_snd:
         # Communication error due to unserializable parameter type (not JSON serializable)
-        assert any([_ in msg_err for _ in msgs])
+        assert any(_ in msg_err for _ in msgs)
     else:
         assert resp4["success"] is True, pprint.pformat(resp4)
         result = wait_for_task_result(10, resp4["task_uid"])
@@ -3397,9 +3397,9 @@ def test_zmq_api_function_execute_5(
         else:
             assert result["return_value"] is None
             assert isinstance(result["traceback"], str)
-            assert any([_ in result["msg"] for _ in msgs])
+            assert any(_ in result["msg"] for _ in msgs)
             assert isinstance(result["traceback"], str)
-            assert any([_ in result["traceback"] for _ in msgs])
+            assert any(_ in result["traceback"] for _ in msgs)
             assert result["traceback"].startswith("Traceback")
 
     resp6, _ = zmq_request("environment_close")

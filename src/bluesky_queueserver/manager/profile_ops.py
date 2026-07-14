@@ -996,8 +996,8 @@ def prepare_plan(plan, *, plans_in_nspace, devices_in_nspace, allowed_plans, all
     # Compare parameters in the signature and in the list of allowed plans. Make sure that the parameters
     #   in the list of allowed plans are a subset of the existing parameters (otherwise the plan can not
     #   be started). This not full validation.
-    existing_names = set([_.name for _ in signature.parameters.values()])
-    allowed_names = set([_["name"] for _ in group_plans[plan_name]["parameters"]])
+    existing_names = set(_.name for _ in signature.parameters.values())
+    allowed_names = set(_["name"] for _ in group_plans[plan_name]["parameters"])
     extra_names = allowed_names - existing_names
     if extra_names:
         raise RuntimeError(f"Plan description in the list of allowed plans has extra parameters {extra_names}")

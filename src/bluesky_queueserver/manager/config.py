@@ -248,7 +248,7 @@ class _ArgsExisting:
         #   ``--zmq-info-addr=tcp://*:60621``
         sys_argsv = [_.split("=")[0] for _ in sys.argv[1:] if _.startswith("-")]
         for k, v in key_mapping.items():
-            key_specified[k] = any([_ in sys_argsv for _ in v])
+            key_specified[k] = any(_ in sys_argsv for _ in v)
 
         return key_specified
 
