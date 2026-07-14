@@ -136,6 +136,7 @@ ignore = [
     "B905",  # adding strict=False to every zip call is just noise
     "C408",  # errors due to using dict()
     "B011",  # do not use 'assert False' error
+    "UP006", # ignore non-PEP 585 generic annotations (e.g. typing.List -> list)
 ]
 isort.required-imports = [
 ]
