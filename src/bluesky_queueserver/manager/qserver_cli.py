@@ -450,8 +450,8 @@ def msg_queue_add_update(params, *, cmd_opt):
             try:
                 # Convert quoted string to dictionary.
                 plan = ast.literal_eval(p_item[0])
-            except Exception:
-                raise CommandParameterError(f"Error occurred while parsing the plan '{p_item[0]}'")
+            except Exception as ex:
+                raise CommandParameterError(f"Error occurred while parsing the plan '{p_item[0]}'") from ex
             if update_uid:
                 plan["item_uid"] = update_uid
             plan["item_type"] = "plan"
@@ -469,8 +469,8 @@ def msg_queue_add_update(params, *, cmd_opt):
             # This indicates a bug in the program.
             raise ValueError(f"Unknown item type: {p_item_type}")
 
-    except IndexError:
-        raise CommandParameterError(f"The command '{params}' contains insufficient number of parameters")
+    except IndexError as ex:
+        raise CommandParameterError(f"The command '{params}' contains insufficient number of parameters") from ex
 
     option = params[0] if (params[0] != "replace") else "update"
     method = f"{command}_item_{option}"
@@ -524,8 +524,8 @@ def msg_function_execute(params, *, cmd_opt):
             try:
                 # Convert quoted string to dictionary.
                 item = ast.literal_eval(item_str)
-            except Exception:
-                raise CommandParameterError(f"Error occurred while parsing the plan '{item_str}'")
+            except Exception as ex:
+                raise CommandParameterError(f"Error occurred while parsing the plan '{item_str}'") from ex
 
             item["item_type"] = "function"
 
@@ -542,8 +542,8 @@ def msg_function_execute(params, *, cmd_opt):
         else:
             raise CommandParameterError(f"Option '{params[0]}' is not supported: '{command} {params[0]}'")
 
-    except IndexError:
-        raise CommandParameterError(f"The command '{params}' contains insufficient number of parameters")
+    except IndexError as ex:
+        raise CommandParameterError(f"The command '{params}' contains insufficient number of parameters") from ex
 
     method = f"{command}_{params[0]}"
     prms = call_params
@@ -628,8 +628,8 @@ def msg_queue_item(params, *, lock_key):
             # This indicates a bug in the program.
             raise ValueError(f"Unknown item type: {p_item_type}")
 
-    except IndexError:
-        raise CommandParameterError(f"The command '{params}' contain insufficient number of parameters")
+    except IndexError as ex:
+        raise CommandParameterError(f"The command '{params}' contain insufficient number of parameters") from ex
 
     method = f"{command}_{params[0]}_{params[1]}"
     prms = addr_param
@@ -693,8 +693,8 @@ def msg_queue_mode(params):
             # This indicates a bug in the program.
             raise ValueError(f"Unknown item type: {p_item_type}")
 
-    except IndexError:
-        raise CommandParameterError(f"The command '{params}' contain insufficient number of parameters")
+    except IndexError as ex:
+        raise CommandParameterError(f"The command '{params}' contain insufficient number of parameters") from ex
 
     method = f"{command}_{params[0]}_{params[1]}"
     prms = cmd_prms
@@ -995,7 +995,7 @@ def create_msg(params, *, lock_key):
             except Exception as ex:
                 raise CommandParameterError(
                     f"Request '{command}': failed to read the user group permissions from file '{file_name}': {ex}"
-                )
+                ) from ex
             prms["user_group_permissions"] = permissions_dict
             if lock_key:
                 prms["lock_key"] = lock_key
@@ -1016,7 +1016,7 @@ def create_msg(params, *, lock_key):
             except Exception as ex:
                 raise CommandParameterError(
                     f"Request '{command}': failed to read the script from file '{file_name}': {ex}"
-                )
+                ) from ex
 
             run_in_background = False
             update_re = False
@@ -1392,7 +1392,7 @@ def qserver():
             try:
                 validate_zmq_key(zmq_public_key)
             except Exception as ex:
-                raise CommandParameterError(f"ZMQ public key is improperly formatted: {ex}")
+                raise CommandParameterError(f"ZMQ public key is improperly formatted: {ex}") from ex
 
         method, params, monitoring_mode = create_msg(args.command, lock_key=lock_key)
         if monitoring_mode:
@@ -1610,7 +1610,7 @@ def qserver_console_base(*, app_name):
             try:
                 validate_zmq_key(zmq_public_key)
             except Exception as ex:
-                raise CommandParameterError(f"ZMQ public key is improperly formatted: {ex}")
+                raise CommandParameterError(f"ZMQ public key is improperly formatted: {ex}") from ex
 
         # Request connection info
         msg, msg_err = zmq_single_request(

@@ -996,8 +996,8 @@ def prepare_plan(plan, *, plans_in_nspace, devices_in_nspace, allowed_plans, all
     # Compare parameters in the signature and in the list of allowed plans. Make sure that the parameters
     #   in the list of allowed plans are a subset of the existing parameters (otherwise the plan can not
     #   be started). This not full validation.
-    existing_names = set(_.name for _ in signature.parameters.values())
-    allowed_names = set(_["name"] for _ in group_plans[plan_name]["parameters"])
+    existing_names = {_.name for _ in signature.parameters.values()}
+    allowed_names = {_["name"] for _ in group_plans[plan_name]["parameters"]}
     extra_names = allowed_names - existing_names
     if extra_names:
         raise RuntimeError(f"Plan description in the list of allowed plans has extra parameters {extra_names}")
@@ -1295,8 +1295,10 @@ def _split_name_pattern(name_pattern):
                 raise ValueError(f"Name pattern {name_pattern!r} contains empty components")
             try:
                 re.compile(c)
-            except re.error:
-                raise ValueError(f"Name pattern {name_pattern!r} contains invalid regular expression {c!r}")
+            except re.error as ex:
+                raise ValueError(
+                    f"Name pattern {name_pattern!r} contains invalid regular expression {c!r}"
+                ) from ex
 
         components = list(zip(components, components_include, components_full_re, components_depth))
 
@@ -1905,7 +1907,7 @@ def _convert_str_to_number(value_in):
         if int(value_out) == value_out:
             value_out = int(value_out)
     except Exception as ex:
-        raise ValueError(f"Failed to interpret the value {value_in!r} as integer or float number: {ex}")
+        raise ValueError(f"Failed to interpret the value {value_in!r} as integer or float number: {ex}") from ex
     return value_out
 
 
@@ -2218,7 +2220,7 @@ def _process_annotation(encoded_annotation, *, ns=None):
         annotation_type = eval(annotation_type_str, ns, ns)
 
     except Exception as ex:
-        raise TypeError(f"Failed to process annotation '{annotation_type_str}': {ex}'")
+        raise TypeError(f"Failed to process annotation '{annotation_type_str}': {ex}'") from ex
 
     return annotation_type, convert_values, ns
 
@@ -2245,7 +2247,7 @@ def _process_default_value(encoded_default_value):
     try:
         p_default = ast.literal_eval(encoded_default_value)
     except Exception as ex:
-        raise ValueError(f"Failed to decode the default value '{encoded_default_value}': {ex}")
+        raise ValueError(f"Failed to decode the default value '{encoded_default_value}': {ex}") from ex
     return p_default
 
 
@@ -2340,7 +2342,7 @@ def construct_parameters(param_list, *, params_decoded=None):
             parameters.append(param)
 
     except Exception as ex:
-        raise ValueError(f"Failed to construct 'inspect.Parameters': {ex}")
+        raise ValueError(f"Failed to construct 'inspect.Parameters': {ex}") from ex
 
     return parameters
 
@@ -2973,9 +2975,9 @@ def _process_plan(plan, *, existing_devices, existing_plans):
         else:
             # Replace each expression with a unique string in the form of '__CALLABLE<n>__'
             n_patterns = 0  # Number of detected callables
-            for type_name, type_patterns in type_patterns.items():
+            for type_name, type_pattern in type_patterns.items():
                 while True:
-                    pattern = _get_full_type_name(type_patterns, a_str)
+                    pattern = _get_full_type_name(type_pattern, a_str)
                     if not pattern:
                         break
                     try:
@@ -3026,13 +3028,13 @@ def _process_plan(plan, *, existing_devices, existing_plans):
         s_value = f"{value!r}"
         try:
             ast.literal_eval(s_value)
-        except Exception:
+        except Exception as ex:
             # If default value can not be accepted, then the plan is considered invalid.
             #    Processing should be interrupted.
             raise ValueError(
                 f"The expression ({s_value}) can not be evaluated with 'ast.literal_eval()': "
                 f"unsupported type{role_str}."
-            )
+            ) from ex
         return s_value
 
     def assemble_custom_annotation(parameter, *, existing_plans, existing_devices):
@@ -3140,7 +3142,7 @@ def _process_plan(plan, *, existing_devices, existing_plans):
                         step = convert_expression_to_string(_, expression_role="step value in decorator")
 
                 except Exception as ex:
-                    raise ValueError(f"Parameter '{p.name}': {ex}")
+                    raise ValueError(f"Parameter '{p.name}': {ex}") from ex
 
             if not desc and use_docstring and (p.name in doc_annotation["parameters"]):
                 desc = doc_annotation["parameters"][p.name].get("description", None)
@@ -3162,7 +3164,7 @@ def _process_plan(plan, *, existing_devices, existing_plans):
                 try:
                     default = convert_expression_to_string(p.default, expression_role="default value")
                 except Exception as ex:
-                    raise ValueError(f"Parameter '{p.name}': {ex}")
+                    raise ValueError(f"Parameter '{p.name}': {ex}") from ex
 
             if desc:
                 working_dict["description"] = desc
@@ -3195,19 +3197,19 @@ def _process_plan(plan, *, existing_devices, existing_plans):
                     vmin = _convert_str_to_number(vmin)
                     working_dict["min"] = f"{vmin}"  # Save as a string
                 except Exception as ex:
-                    raise ValueError(f"Failed to process min. value: {ex}")
+                    raise ValueError(f"Failed to process min. value: {ex}") from ex
             if vmax is not None:
                 try:
                     vmax = _convert_str_to_number(vmax)
                     working_dict["max"] = f"{vmax}"
                 except Exception as ex:
-                    raise ValueError(f"Failed to process max. value: {ex}")
+                    raise ValueError(f"Failed to process max. value: {ex}") from ex
             if step is not None:
                 try:
                     step = _convert_str_to_number(step)
                     working_dict["step"] = f"{step}"
                 except Exception as ex:
-                    raise ValueError(f"Failed to process step value: {ex}")
+                    raise ValueError(f"Failed to process step value: {ex}") from ex
 
     except Exception as ex:
         raise ValueError(f"Failed to create description of plan '{plan.__name__}': {ex}") from ex
@@ -3769,7 +3771,7 @@ def load_user_group_permissions(path_to_file=None):
 
     except Exception as ex:
         msg = f"Error while loading user group permissions from file '{path_to_file}': {str(ex)}"
-        raise OSError(msg)
+        raise OSError(msg) from ex
 
     return user_group_permissions
 

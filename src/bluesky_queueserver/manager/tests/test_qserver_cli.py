@@ -905,7 +905,7 @@ def test_qserver_queue_item_update_1(re_manager, replace, item_type):  # noqa F8
         assert item_2["item_uid"] != item_1["item_uid"]
     else:
         assert item_2["item_uid"] == item_1["item_uid"]
-    item_2["item_type"] == item_type
+    assert item_2["item_type"] == item_type
 
 
 # fmt: on
@@ -1085,7 +1085,7 @@ def test_qserver_history_clear_1(re_manager, params, n_expected, exit_code):  # 
     plan = "{'name': 'count', 'args': [['det1', 'det2']]}"
 
     # Add 4 plans to queue
-    for n in range(4):
+    for _ in range(4):
         assert sp_call(["qserver", "queue", "add", "plan", plan]) == SUCCESS
 
     assert sp_call(["qserver", "environment", "open"]) == SUCCESS

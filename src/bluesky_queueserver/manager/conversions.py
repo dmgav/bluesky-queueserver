@@ -288,7 +288,7 @@ def spreadsheet_to_plan_list(*, spreadsheet_file, file_name, **kwargs):  # noqa:
     keys_kwargs = column_keys[2:]  # This could be empty
 
     # Check that the columns for kwargs contain no duplicate names
-    if len(set([_.lower() for _ in keys_kwargs])) != len(keys_kwargs):
+    if len({[_.lower() for _ in keys_kwargs]}) != len(keys_kwargs):
         raise ValueError(f"Some plan kwarg names are identical: {keys_kwargs}")
 
     # The number of rows (rows are potentially plans, there could be empty rows though)
@@ -351,6 +351,6 @@ def spreadsheet_to_plan_list(*, spreadsheet_file, file_name, **kwargs):  # noqa:
             logger.exception("Exception: %s", ex)
             raise ValueError(
                 f"Error occurred while interpreting plan parameters in row {nr + 1} ({_format_row(df, nr)}): {ex}"
-            )
+            ) from ex
 
     return plan_list

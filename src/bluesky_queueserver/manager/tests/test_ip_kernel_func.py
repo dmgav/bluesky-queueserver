@@ -952,7 +952,7 @@ def test_ip_kernel_direct_connection_03(re_manager, ip_kernel_simple_client, opt
     check_status("busy", False)
 
     s = check_status("busy", False)
-    s["manager_state"] == "paused"
+    assert s["manager_state"] == "paused"
 
     assert wait_for_condition(10, condition_ip_kernel_idle)
 

@@ -1216,7 +1216,7 @@ class PlanQueueOperations:
                 src_by_index = True
                 item_source = await self._get_item(pos=pos)
         except Exception as ex:
-            raise IndexError(f"Source plan ({src_txt}) was not found: {str(ex)}.")
+            raise IndexError(f"Source plan ({src_txt}) was not found: {str(ex)}.") from ex
 
         uid_source = item_source["item_uid"]
 
@@ -1251,7 +1251,7 @@ class PlanQueueOperations:
                     before = si > pi
 
         except Exception as ex:
-            raise IndexError(f"Destination plan ({dest_txt}) was not found: {str(ex)}.")
+            raise IndexError(f"Destination plan ({dest_txt}) was not found: {str(ex)}.") from ex
 
         # Copy destination UID from the plan (we need it for the case of if addressing is positional
         #   so we convert it to UID, but we can do it for the case of UID addressing as well)

@@ -604,8 +604,8 @@ class ReManager:
                     try:
                         self._p.communicate(timeout=timeout)
                         self._p = None
-                    except subprocess.TimeoutExpired:
-                        raise RuntimeError(f"Timeout occured while waiting for the manager to stop: {msg}")
+                    except subprocess.TimeoutExpired as ex:
+                        raise RuntimeError(f"Timeout occured while waiting for the manager to stop: {msg}") from ex
 
                     # If at least one of the requests failed and there is an error message, then fail the test
                     if msg:

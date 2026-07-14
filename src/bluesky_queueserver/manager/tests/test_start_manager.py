@@ -48,7 +48,7 @@ class ReManagerEmulation(threading.Thread):
         while True:
             # Since we are emulating 'kill' method, we want the function to
             #   react to 'exit' quickly.
-            for n in range(n_wait):
+            for _ in range(n_wait):
                 ttime.sleep(0.005)
                 if self._exit:
                     return

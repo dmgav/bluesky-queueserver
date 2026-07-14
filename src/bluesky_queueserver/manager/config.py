@@ -474,9 +474,9 @@ class Settings:
             if port is not None:
                 try:
                     port = int(port)
-                except ValueError:
+                except ValueError as ex:
                     _ = port_name.upper()
-                    raise ConfigError(f"Incorrect value for IPython {_} port: {port!r} (must be 'int')")
+                    raise ConfigError(f"Incorrect value for IPython {_} port: {port!r} (must be 'int')") from ex
             return port
 
         self._settings["ipython_shell_port"] = _check_port_value(self._settings["ipython_shell_port"], "shell")

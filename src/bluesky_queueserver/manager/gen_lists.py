@@ -347,7 +347,7 @@ def gen_list_of_plans_and_devices(
             raise Exception(error)
 
     except Exception as ex:
-        raise RuntimeError(f"Failed to create the list of plans and devices:\n\n{str(ex)}")
+        raise RuntimeError(f"Failed to create the list of plans and devices:\n\n{str(ex)}") from ex
 
 
 def gen_list_of_plans_and_devices_cli():

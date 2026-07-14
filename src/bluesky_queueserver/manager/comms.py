@@ -481,10 +481,10 @@ class PipeJsonRpcSendAsync:
                     response = None
                 return response
 
-            except asyncio.TimeoutError:
-                raise CommTimeoutError(f"Timeout while waiting for response to message: \n{ppfl(msg)}")
-            except queue.Full:
-                raise CommTimeoutError(f"The outgoing message buffer is full: \n{ppfl(msg)}")
+            except asyncio.TimeoutError as ex:
+                raise CommTimeoutError(f"Timeout while waiting for response to message: \n{ppfl(msg)}") from ex
+            except queue.Full as ex:
+                raise CommTimeoutError(f"The outgoing message buffer is full: \n{ppfl(msg)}") from ex
             finally:
                 # Clear the 'send' buffer
                 while not self._msg_send_buffer.empty():
@@ -609,8 +609,8 @@ def validate_zmq_key(key):
     """
     try:
         generate_zmq_public_key(key)
-    except Exception:
-        raise ValueError(f"Invalid key '{key}': the key must be a 40 byte z85 encoded string")
+    except Exception as ex:
+        raise ValueError(f"Invalid key '{key}': the key must be a 40 byte z85 encoded string") from ex
 
 
 # =========================================================================================
@@ -986,7 +986,7 @@ class ZMQCommSendThreads:
             errmsg = f"ZMQ communication error: {str(ex)}"
             use_ex = raise_exceptions if (raise_exceptions is not None) else self._raise_exceptions
             if use_ex:
-                raise CommTimeoutError(errmsg)
+                raise CommTimeoutError(errmsg) from ex
             msg_in = {"success": False, "msg": errmsg}
 
         return msg_in
@@ -1207,7 +1207,7 @@ class ZMQCommSendAsync:
                 errmsg = f"ZMQ communication error: {str(ex)}"
                 use_ex = raise_exceptions if (raise_exceptions is not None) else self._raise_exceptions
                 if use_ex:
-                    raise CommTimeoutError(errmsg)
+                    raise CommTimeoutError(errmsg) from ex
                 msg_in = {"success": False, "msg": errmsg}
             return msg_in
 

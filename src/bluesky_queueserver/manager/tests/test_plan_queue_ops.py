@@ -1092,7 +1092,7 @@ def test_replace_item_3(mode):
         async with PQ() as pq:
             plans = [{"name": "a", "result": {}}, {"name": "b"}, {"name": "c"}]
 
-            for n, plan in enumerate(plans):
+            for plan in plans:
                 await pq.add_item_to_queue(plan, filter_parameters=False)
 
             assert pq.get_queue_size() == 3

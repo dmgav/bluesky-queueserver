@@ -173,7 +173,7 @@ def test_PipeJsonRpcReceive_2(method, params, result, notification, use_json):
     pc.add_method(some_class.method_handler4, "method4")
     pc.start()
 
-    for n in range(3):
+    for _ in range(3):
         value_nonlocal = None
 
         request = format_jsonrpc_msg(method, params, notification=notification)
@@ -582,7 +582,7 @@ def test_PipeJsonRpcSendAsync_2(method, params, result, notification, use_json):
         p_send = PipeJsonRpcSendAsync(conn=conn1, name="comm-client", use_json=use_json)
         p_send.start()
 
-        for n in range(3):
+        for _ in range(3):
             value_nonlocal = None
 
             response = await p_send.send_msg(method, params, notification=notification)
@@ -628,7 +628,7 @@ def test_PipeJsonRpcSendAsync_3(use_json):
         # Submit multiple messages at once. Messages should stay at the event loop
         #   and be processed one by one.
         futs = []
-        for n in range(5):
+        for _ in range(5):
             futs.append(asyncio.ensure_future(p_send.send_msg("method1")))
 
         for n, fut in enumerate(futs):
@@ -1156,7 +1156,7 @@ def test_ZMQCommSendThreads_3(is_blocking, encryption_enabled, encoding):
         th_request.join()
 
     else:
-        for n in range(len(vals)):
+        for _ in range(len(vals)):
             zmq_comm.send_message(method=method, params=params, cb=cb)
 
     while n_done < 2:
@@ -1432,7 +1432,7 @@ def test_ZMQCommSendAsync_3(encryption_enabled, encoding):
         vals = (10, 20)
 
         tasks = []
-        for n in range(len(vals)):
+        for _ in range(len(vals)):
             tsk = asyncio.ensure_future(zmq_comm.send_message(method=method, params=params))
             tasks.append(tsk)
 

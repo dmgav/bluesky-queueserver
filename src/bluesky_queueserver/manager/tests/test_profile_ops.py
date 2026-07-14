@@ -10,7 +10,7 @@ import sys
 import time as ttime
 import typing
 from collections.abc import Callable
-from typing import Dict, Optional
+from typing import Dict, Optional  # noqa: UP035
 
 import bluesky.protocols
 import ophyd
@@ -1933,8 +1933,8 @@ _pf2f_processed = {
 def _pf2g(
     val1: tuple[float | int] = (50,),
     val2: list[str] | str = "some_str",
-    val3: dict[str, int] = {"ab": 10, "cd": 50},
-    val4: dict[str, int] = {"ab": 10, "cd": 50},
+    val3: dict[str, int] = {"ab": 10, "cd": 50},  # noqa: B006
+    val4: dict[str, int] = {"ab": 10, "cd": 50},  # noqa: B006
     val5: float | None = None,
 ):
     yield from [val1, val2, val3, val4, val5]
@@ -1980,8 +1980,8 @@ _pf2g_processed = {
 def _pf2g2(
     val1: typing.Tuple[typing.Union[float, int]] = (50,),
     val2: typing.Union[typing.List[str], str] = "some_str",
-    val3: typing.Dict[str, int] = {"ab": 10, "cd": 50},
-    val4: Dict[str, int] = {"ab": 10, "cd": 50},  # No module name 'typing'
+    val3: typing.Dict[str, int] = {"ab": 10, "cd": 50},  # noqa: B006
+    val4: Dict[str, int] = {"ab": 10, "cd": 50},  # noqa: B006  No module name 'typing'
     val5: typing.Optional[float] = None,  # typing.Optional[float] == typing.Union[float, NoneType]
 ):
     yield from [val1, val2, val3, val4, val5]
@@ -2576,7 +2576,7 @@ class _Pf3f_val1:
         },
     }
 )
-def _pf3f(val1=ophyd.Device(name="some_device")):  # Default value has unsupported type
+def _pf3f(val1=ophyd.Device(name="some_device")):  # noqa: B008  Default value has unsupported type
     # This test case would fail because the default value has type that is not supported.
     #   Replacing the default value in the signature by a different value in the decorator
     #   allows to use the plan without change.
@@ -3307,7 +3307,9 @@ def _pf5a_factory():
 
     class SomeClass: ...
 
-    def f(val1, *, val2, val3=SomeClass()):
+    objSomeClass = SomeClass()
+
+    def f(val1, *, val2, val3=objSomeClass):
         yield from [val1, val2, val3]
 
     return f
@@ -3883,7 +3885,7 @@ def test_devices_from_nspace():
     pc_path = get_default_startup_dir()
     nspace = load_profile_collection(pc_path)
     devices = devices_from_nspace(nspace)
-    for name, device in devices.items():
+    for _, device in devices.items():
         assert isinstance(
             device, (protocols.Readable, protocols.Flyable)
         ), f"The object '{device}' is not a device"

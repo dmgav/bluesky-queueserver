@@ -223,8 +223,7 @@ def test_annotation_dectorator_04(custom_annotation):
     @parameter_annotation_decorator(custom_annotation)
     def func(val_arg, *, val_kwarg=10):
         n_elements = val_arg + val_kwarg
-        for n in range(n_elements):
-            yield n
+        yield from range(n_elements)
 
     assert func._custom_parameter_annotation_ == custom_annotation
     assert list(func(10, val_kwarg=20)) == list(range(30))
@@ -262,8 +261,7 @@ def test_annotation_dectorator_05(custom_annotation):
     def func(val_arg, *, val_kwarg) -> typing.Iterable[int]:
         # The following code has no purpose except to see if the generator is still working.
         added_strings = val_arg + val_kwarg
-        for n in range(len(added_strings)):
-            yield n
+        yield from range(len(added_strings))
 
     assert func._custom_parameter_annotation_ == custom_annotation
     assert list(func("gridscan", val_kwarg="det2")) == list(range(len("gridscan") + len("det2")))
@@ -318,9 +316,7 @@ def test_annotation_dectorator_06(custom_annotation):
         val2: typing.Union[int, float] = 6,
         **kwargs: int,
     ) -> typing.Generator[str, None, None]:
-        str_list = ["str1", "str2", "str3"]
-        for s in str_list:
-            yield s
+        yield from ["str1", "str2", "str3"]
 
     assert func._custom_parameter_annotation_ == custom_annotation
     assert list(func("det1", ["det1", "det2"])) == ["str1", "str2", "str3"]
@@ -348,9 +344,7 @@ def test_annotation_dectorator_07(custom_annotation):
 
     @parameter_annotation_decorator(custom_annotation)
     def func():
-        str_list = ["str1", "str2", "str3"]
-        for s in str_list:
-            yield s
+        yield from ["str1", "str2", "str3"]
 
     assert func._custom_parameter_annotation_ == custom_annotation
     assert list(func()) == ["str1", "str2", "str3"]

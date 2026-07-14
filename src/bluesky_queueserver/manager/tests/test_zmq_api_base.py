@@ -484,7 +484,7 @@ def test_zmq_api_history_clear_1(re_manager, params, n_expected, success, err_ms
     Basic test for ``history_clear`` API.
     """
     # Add 4 plans to queue
-    for n in range(4):
+    for _ in range(4):
         params1a = {"item": _plan1, "user": _user, "user_group": _user_group}
         resp1a, _ = zmq_request("queue_item_add", params1a)
         assert resp1a["success"] is True, f"resp={resp1a}"

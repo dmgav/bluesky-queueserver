@@ -664,7 +664,7 @@ class RunEngineManager(Process):
         #   This should never fail unless there is a bug in the Manager or Watchdog,
         #   since killing process can be done in any state of the Worker.
         # TODO: think about handling timeout errors.
-        for n in range(10):
+        for _ in range(10):
             await asyncio.sleep(1)
             if not await self._watchdog_is_worker_alive():
                 success = True
@@ -1494,7 +1494,7 @@ class RunEngineManager(Process):
         except Exception as ex:
             raise Exception(
                 f"Error occurred while loading lists of allowed plans and devices from '{path_pd}': {str(ex)}"
-            )
+            ) from ex
 
     async def _save_lock_info_to_redis(self):
         try:
