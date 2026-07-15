@@ -11,11 +11,15 @@ jobs:
     if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name != github.repository
 
     name: Check code style
+
     runs-on: ubuntu-latest
+
     env:
       python_env: py313
+
     strategy:
       fail-fast: false
+
     defaults:
       run:
         shell: bash -l {0}
