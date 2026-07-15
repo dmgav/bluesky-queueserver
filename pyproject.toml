@@ -131,15 +131,16 @@ select = [
     "I",   # isort - https://docs.astral.sh/ruff/rules/#isort-i
     "UP",  # pyupgrade - https://docs.astral.sh/ruff/rules/#pyupgrade-up
 ]
-unfixable = ["F401"]
+unfixable = [
+    "F401",
+    "UP006",  # ignore non-PEP 585 generic annotations (e.g. typing.List -> list)
+    "UP007",  # e.g. typing.Union[int, float] -> int | float
+    "UP045",  # e.g. typing.Optional[int] -> int | None
+]
 ignore = [
     "B905",   # adding strict=False to every zip call is just noise
     "C408",   # errors due to using dict()
     "B011",   # do not use 'assert False' error
-    "UP006",  # ignore non-PEP 585 generic annotations (e.g. typing.List -> list)
-    "UP007",  # e.g. typing.Union[int, float] -> int | float
-    "UP045",  # e.g. typing.Optional[int] -> int | None
-    # "PYI041", # e.g. typing.Union[int, float] -> int | float
 ]
 isort.required-imports = [
 ]
