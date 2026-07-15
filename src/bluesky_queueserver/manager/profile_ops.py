@@ -2374,9 +2374,9 @@ def pydantic_construct_model_class(parameters):
                 default = ...
         if hasattr(p, "annotation"):
             if p.kind == p.VAR_POSITIONAL:
-                annotation = typing.List[p.annotation]
+                annotation = typing.List[p.annotation]  # noqa:UP006
             elif p.kind == p.VAR_KEYWORD:
-                annotation = typing.Dict[str, p.annotation]
+                annotation = typing.Dict[str, p.annotation]  # noqa:UP006
             else:
                 annotation = p.annotation
         else:

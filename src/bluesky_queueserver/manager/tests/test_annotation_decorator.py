@@ -309,11 +309,11 @@ def test_annotation_dectorator_06(custom_annotation):
     @parameter_annotation_decorator(custom_annotation)
     def func(
         detector: typing.Any,
-        detectors: typing.List[typing.Any],
+        detectors: typing.List[typing.Any],  # noqa:UP006
         val1: float = 10,
         *args: int,
         msg: str = "default_string",
-        val2: typing.Union[int, float] = 6,
+        val2: typing.Union[int, float] = 6,  # noqa:UP007
         **kwargs: int,
     ) -> typing.Generator[str, None, None]:
         yield from ["str1", "str2", "str3"]

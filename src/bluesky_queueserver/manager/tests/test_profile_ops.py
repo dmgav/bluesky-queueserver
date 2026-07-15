@@ -1978,11 +1978,11 @@ _pf2g_processed = {
 
 
 def _pf2g2(
-    val1: typing.Tuple[typing.Union[float, int]] = (50,),
-    val2: typing.Union[typing.List[str], str] = "some_str",
-    val3: typing.Dict[str, int] = {"ab": 10, "cd": 50},  # noqa: B006
-    val4: Dict[str, int] = {"ab": 10, "cd": 50},  # noqa: B006  No module name 'typing'
-    val5: typing.Optional[float] = None,  # typing.Optional[float] == typing.Union[float, NoneType]
+    val1: typing.Tuple[typing.Union[float, int]] = (50,),  # noqa:UP006,UP007
+    val2: typing.Union[typing.List[str], str] = "some_str",  # noqa:UP006,UP007
+    val3: typing.Dict[str, int] = {"ab": 10, "cd": 50},  # noqa:B006,UP006
+    val4: Dict[str, int] = {"ab": 10, "cd": 50},  # noqa:B006,UP006  No module name 'typing'
+    val5: typing.Optional[float] = None,  # noqa:UP045  typing.Optional[float] == typing.Union[float, NoneType]
 ):
     yield from [val1, val2, val3, val4, val5]
 
@@ -2036,7 +2036,7 @@ _pf2g2_processed = {
 
 def _pf2h(
     val1: bluesky.protocols.Readable,
-    val2: typing.List[bluesky.protocols.Readable],
+    val2: typing.List[bluesky.protocols.Readable],  # noqa:UP006
     val3: list[bluesky.protocols.Readable],
 ):
     yield from [val1, val2, val3]
@@ -2116,8 +2116,8 @@ def _pf2j(
     val6: bluesky.protocols.Stoppable,
     val7: bluesky.protocols.Subscribable,
     val8: bluesky.protocols.Checkable,
-    val9: Optional[bluesky.protocols.Configurable],
-    val10: typing.Union[bluesky.protocols.Triggerable, list[bluesky.protocols.Locatable]],
+    val9: Optional[bluesky.protocols.Configurable],  # noqa:UP045
+    val10: typing.Union[bluesky.protocols.Triggerable, list[bluesky.protocols.Locatable]],  # noqa:UP007
 ):
     yield from [val1, val2, val3, val4, val5, val6, val7, val8]
 
@@ -2200,15 +2200,16 @@ _pf2j_processed = {
 def _pf2k(
     val1: typing.Callable,
     val2: typing.Callable[[int, float], str],
-    val3: typing.Union[
-        typing.Callable[[int, float], typing.Tuple[str, str]], typing.List[typing.Callable[[int, float], str]]
+    val3: typing.Union[  # noqa:UP007
+        typing.Callable[[int, float], typing.Tuple[str, str]],  # noqa:UP006
+        typing.List[typing.Callable[[int, float], str]]  # noqa:UP006
     ],
     val4: (
-        collections.abc.Callable[[int, float], typing.Tuple[str, str]]
+        collections.abc.Callable[[int, float], typing.Tuple[str, str]]  # noqa:UP006
         | list[collections.abc.Callable[[int, float], str]]
     ),
     val5: (
-        collections.abc.Callable[[int, typing.Callable[[int], int]], typing.Tuple[str, str]]
+        collections.abc.Callable[[int, typing.Callable[[int], int]], typing.Tuple[str, str]]  # noqa:UP006
         | list[collections.abc.Callable[[int, float], str]]
     ),
 ):
@@ -3343,7 +3344,7 @@ def _pf5b(val1, val2: str = "some_str", val3: None = None):
         },
     }
 )
-def _pf5c(detector: Optional[ophyd.Device]):
+def _pf5c(detector: Optional[ophyd.Device]):  # noqa:UP045
     # Expected to fail: the default value is in the decorator, but not in the header
     yield from [detector]
 
@@ -3484,33 +3485,36 @@ def _create_schema_for_testing(annotation_type):
     "encoded_annotation, type_expected, built_in_plans, built_in_devices, eval_expr, success, errmsg", [
         ({"type": "int"}, int, False, False, False, True, ""),
         ({"type": "str"}, str, False, False, False, True, ""),
-        ({"type": "typing.List[int]"}, typing.List[int], False, False, False, True, ""),
+        ({"type": "typing.List[int]"}, typing.List[int], False, False, False, True, ""),  # noqa:UP006
         ({"type": "typing.List[typing.Union[int, float]]"},
-         typing.List[typing.Union[int, float]], False, False, False, True, ""),
-        ({"type": "List[int]"}, typing.List[int], False, False, False, False, "name 'List' is not defined"),
+         typing.List[typing.Union[int, float]], False, False, False, True, ""),  # noqa:UP006,UP007
+        ({"type": "List[int]"}, typing.List[int],  # noqa:UP006
+         False, False, False, False, "name 'List' is not defined"),
 
         #  Built-in types: allow any value to pass
         ({"type": "__PLAN__"}, str, True, False, False, True, ""),
-        ({"type": "typing.List[__PLAN__]"}, typing.List[str], True, False, False, True, ""),
+        ({"type": "typing.List[__PLAN__]"}, typing.List[str], True, False, False, True, ""),  # noqa:UP006
         ({"type": "__DEVICE__"}, str, False, True, False, True, ""),
-        ({"type": "typing.List[__DEVICE__]"}, typing.List[str], False, True, False, True, ""),
+        ({"type": "typing.List[__DEVICE__]"}, typing.List[str], False, True, False, True, ""),  # noqa:UP006
         ({"type": "__READABLE__"}, str, False, True, False, True, ""),
-        ({"type": "typing.List[__READABLE__]"}, typing.List[str], False, True, False, True, ""),
+        ({"type": "typing.List[__READABLE__]"}, typing.List[str], False, True, False, True, ""), # noqa:UP006
         ({"type": "__MOVABLE__"}, str, False, True, False, True, ""),
-        ({"type": "typing.List[__MOVABLE__]"}, typing.List[str], False, True, False, True, ""),
+        ({"type": "typing.List[__MOVABLE__]"}, typing.List[str], False, True, False, True, ""),  # noqa:UP006
         ({"type": "__FLYABLE__"}, str, False, True, False, True, ""),
-        ({"type": "typing.List[__FLYABLE__]"}, typing.List[str], False, True, False, True, ""),
+        ({"type": "typing.List[__FLYABLE__]"}, typing.List[str], False, True, False, True, ""),  # noqa:UP006
         ({"type": "__PLAN_OR_DEVICE__"}, str, True, True, False, True, ""),
-        ({"type": "typing.List[__PLAN_OR_DEVICE__]"}, typing.List[str], True, True, False, True, ""),
+        ({"type": "typing.List[__PLAN_OR_DEVICE__]"}, typing.List[str],  # noqa:UP006
+         True, True, False, True, ""),
         ({"type": "typing.Union[typing.List[__PLAN__], __DEVICE__]"},
-         typing.Union[typing.List[str], str], True, True, False, True, ""),
+         typing.Union[typing.List[str], str], True, True, False, True, ""),  # noqa:UP006,UP007
 
         ({"type": "__CALLABLE__"}, str, False, False, True, True, ""),
-        ({"type": "typing.List[__CALLABLE__]"}, typing.List[str], False, False, True, True, ""),
+        ({"type": "typing.List[__CALLABLE__]"}, typing.List[str], False, False, True, True, ""),  #noqa:UP006
 
         # Errors
         ({"type": "typing.Union[typing.List[Device1], Device2]", "devices": {"Device1": []}},
-         typing.Union[typing.List[str], str], False, False, False, False, "name 'Device2' is not defined"),
+         typing.Union[typing.List[str], str], False,  # noqa:UP006,UP007
+         False, False, False, "name 'Device2' is not defined"),
         ({"type": "Enum1", "unknown": {"Enum1": []}}, str, False, False, False, False,
          r"Annotation contains unsupported keys: \['unknown'\]"),
         ({"type": "str", "devices": {"Device1": []}}, str, False, False, False, False,
@@ -3557,48 +3561,52 @@ pa2__PLAN_OR_DEVICE__ = enum.Enum("__PLAN_OR_DEVICE__", {})
 @pytest.mark.parametrize("encoded_annotation, type_expected, success, errmsg", [
     # Use custom type specifications
     ({"type": "pa2_Device1", "devices": {"pa2_Device1": ("dev1", "dev2", "dev3")}}, pa2_Device1, True, ""),
-    ({"type": "typing.List[pa2_Device1]", "devices": {"pa2_Device1": ("dev1", "dev2", "dev3")}},
-     typing.List[pa2_Device1], True, ""),
+    ({"type": "typing.List[pa2_Device1]", "devices": {"pa2_Device1": ("dev1", "dev2", "dev3")}},  # noqa:UP006
+     typing.List[pa2_Device1], True, ""),  # noqa:UP006
     ({"type": "typing.List[typing.Union[pa2_Device1, pa2_Device2]]", "devices":
         {"pa2_Device1": ("dev1", "dev2", "dev3"),
-         "pa2_Device2": ("dev4", "dev5")}}, typing.List[typing.Union[pa2_Device1, pa2_Device2]], True, ""),
+         "pa2_Device2": ("dev4", "dev5")}},
+         typing.List[typing.Union[pa2_Device1, pa2_Device2]], True, ""),  # noqa:UP006,UP007
     ({"type": "typing.Union[typing.List[pa2_Device1], typing.List[pa2_Plan1]]", "devices":
         {"pa2_Device1": ("dev1", "dev2", "dev3"),
          "pa2_Plan1": ("plan1", "plan2")}},
-     typing.Union[typing.List[pa2_Device1], typing.List[pa2_Plan1]], True, ""),
+     typing.Union[typing.List[pa2_Device1], typing.List[pa2_Plan1]], True, ""),  # noqa:UP006,UP007
     ({"type": "typing.Union[typing.List[pa2_Device1], typing.List[pa2_Enum1]]", "devices":
         {"pa2_Device1": ("dev1", "dev2", "dev3"),
          "pa2_Enum1": ("enum1", "enum2")}},
-     typing.Union[typing.List[pa2_Device1], typing.List[pa2_Enum1]], True, ""),
+     typing.Union[typing.List[pa2_Device1], typing.List[pa2_Enum1]], True, ""),  # noqa:UP006,UP007
     # Use Tuple instead of List (produces different JSON schema)
     ({"type": "typing.Union[typing.Tuple[pa2_Device1], typing.List[pa2_Enum1]]", "devices":
         {"pa2_Device1": ("dev1", "dev2", "dev3"),
          "pa2_Enum1": ("enum1", "enum2")}},
-     typing.Union[typing.Tuple[pa2_Device1], typing.List[pa2_Enum1]], True, ""),
+     typing.Union[typing.Tuple[pa2_Device1], typing.List[pa2_Enum1]], True, ""),  # noqa:UP006,UP007
     # Redefine built-in types.
     ({"type": "typing.Union[__PLAN__, __DEVICE__, __PLAN_OR_DEVICE__]",
       "devices": {"__DEVICE__": ("dev1", "dev2", "dev3"), "__PLAN_OR_DEVICE__": []},
       "plans": {"__PLAN__": ("plan1", "plan2")}},
-     typing.Union[pa2__PLAN__, pa2__DEVICE__, pa2__PLAN_OR_DEVICE__], True, ""),
+     typing.Union[pa2__PLAN__, pa2__DEVICE__, pa2__PLAN_OR_DEVICE__], True, ""),  # noqa:UP007
     # Failing case: unknown 'custom' type in the annotation
     ({"type": "typing.Union[typing.List[unknown_type], typing.List[pa2_Enum1]]", "devices":
         {"pa2_Enum1": ("enum1", "enum2")}},
-     typing.Union[typing.List[pa2_Device1], typing.List[pa2_Enum1]], False, "name 'unknown_type' is not defined"),
+     typing.Union[typing.List[pa2_Device1], typing.List[pa2_Enum1]], False,   # noqa:UP006,UP007
+     "name 'unknown_type' is not defined"),
     # Name for custom type is not a valid Python name
     ({"type": "typing.Union[typing.List[unknown-type], typing.List[pa2_Enum1]]", "devices":
         {"pa2_Enum1": ("enum1", "enum2")}},
-     typing.Union[typing.List[pa2_Device1], typing.List[pa2_Enum1]], False, "name 'unknown' is not defined"),
+     typing.Union[typing.List[pa2_Device1], typing.List[pa2_Enum1]], False,  # noqa:UP006,UP007
+     "name 'unknown' is not defined"),
     # Non-existing type 'typing.list'
     ({"type": "typing.Union[typing.list[pa2_Device1], typing.List[pa2_Enum1]]", "devices":
         {"pa2_Device1": ("dev1", "dev2", "dev3"),
          "pa2_Enum1": ("enum1", "enum2")}},
-     typing.Union[typing.List[pa2_Device1], typing.List[pa2_Enum1]], False,
+     typing.Union[typing.List[pa2_Device1], typing.List[pa2_Enum1]], False, # noqa:UP006,UP007
      "module 'typing' has no attribute 'list'"),
     # Non-existing type 'List'
     ({"type": "typing.Union[List[pa2_Device1], List[pa2_Enum1]]", "devices":
         {"pa2_Device1": ("dev1", "dev2", "dev3"),
          "pa2_Enum1": ("enum1", "enum2")}},
-     typing.Union[typing.List[pa2_Device1], typing.List[pa2_Enum1]], False, "name 'List' is not defined'"),
+     typing.Union[typing.List[pa2_Device1], typing.List[pa2_Enum1]],  # noqa:UP006,UP007
+         False, "name 'List' is not defined'"),
 ])
 # fmt: on
 def test_process_annotation_2(encoded_annotation, type_expected, success, errmsg):
@@ -3625,17 +3633,17 @@ def test_process_annotation_2(encoded_annotation, type_expected, success, errmsg
     ({"type": "typing.Union[typing.List[pa2_Device1], typing.List[pa2_Enum1]]", "devices":
         {"pa2_Device1": ("dev1", "dev2"),
          "pa2_Enum1": ("enum1", "enum2")}},
-     typing.Union[typing.List[pa2_Device1], typing.List[pa2_Enum1]], True, ""),
+     typing.Union[typing.List[pa2_Device1], typing.List[pa2_Enum1]], True, ""),  # noqa:UP006,UP007
     # Extra 'enum3'
     ({"type": "typing.Union[typing.List[pa2_Device1], typing.List[pa2_Enum1]]", "devices":
         {"pa2_Device1": ("dev1", "dev2", "dev3"),
          "pa2_Enum1": ("enum1", "enum2", "enum3")}},
-     typing.Union[typing.List[pa2_Device1], typing.List[pa2_Enum1]], True, ""),
+     typing.Union[typing.List[pa2_Device1], typing.List[pa2_Enum1]], True, ""),  # noqa:UP006,UP007
     # Changed device name 'dev2x'
     ({"type": "typing.Union[typing.List[pa2_Device1], typing.List[pa2_Enum1]]", "devices":
         {"pa2_Device1": ("dev1", "dev2x", "dev3"),
          "pa2_Enum1": ("enum1", "enum2")}},
-     typing.Union[typing.List[pa2_Device1], typing.List[pa2_Enum1]], True, ""),
+     typing.Union[typing.List[pa2_Device1], typing.List[pa2_Enum1]], True, ""),  # noqa:UP006,UP007
 ])
 # fmt: on
 def test_process_annotation_3(encoded_annotation, type_expected, success, errmsg):
@@ -3689,7 +3697,7 @@ _ipt1 = [
 _ipt1_result = {
     "param1": {"type": int, "default": 10},
     "param2": {"type": str, "default": "some-string"},
-    "param3": {"type": typing.Union[typing.List[int], int, None], "default": 50},
+    "param3": {"type": typing.Union[typing.List[int], int, None], "default": 50},  # noqa:UP006,UP007
 }
 
 _ipt2 = [
@@ -3709,7 +3717,7 @@ _ipt2_Detectors1 = enum.Enum("_ipt2_Detectors1", {"det1": "det1", "det2": "det2"
 
 _ipt2_result = {
     "param1": {"type": _ipt2_Detectors1, "default": "det1"},
-    "param2": {"type": typing.List[_ipt2_Detectors1], "default": "det2"},
+    "param2": {"type": typing.List[_ipt2_Detectors1], "default": "det2"},  # noqa:UP006
 }
 
 _ipt3 = [
@@ -4531,7 +4539,7 @@ def _gen_environment_pp2():
             }
         }
     )
-    def plan4(detectors: typing.Optional[typing.List[ophyd.Device]] = None):
+    def plan4(detectors: typing.Optional[typing.List[ophyd.Device]] = None):  # noqa:UP006,UP045
         # Default for 'detectors' is None, which is converted to the default list of detectors
         detectors = detectors or [_pp_dev2, _pp_dev3]
         yield from detectors
@@ -4549,7 +4557,7 @@ def _gen_environment_pp2():
             }
         }
     )
-    def plan4a(detectors: typing.Optional[typing.List[ophyd.Device]] = None):
+    def plan4a(detectors: typing.Optional[typing.List[ophyd.Device]] = None):  # noqa:UP006,UP045
         # Default for 'detectors' is None, which is converted to the default list of detectors
         detectors = detectors or [_pp_dev2, _pp_dev3]
         yield from detectors
@@ -4566,7 +4574,7 @@ def _gen_environment_pp2():
             }
         }
     )
-    def plan4b(detectors: typing.Optional[typing.List[ophyd.Device]] = None):
+    def plan4b(detectors: typing.Optional[typing.List[ophyd.Device]] = None):  # noqa:UP006,UP045
         # Default for 'detectors' is None, which is converted to the default list of detectors
         detectors = detectors or [_pp_dev2, _pp_dev3]
         yield from detectors
@@ -4584,7 +4592,7 @@ def _gen_environment_pp2():
             }
         }
     )
-    def plan4c(detectors: typing.Optional[typing.List[ophyd.Device]] = None):
+    def plan4c(detectors: typing.Optional[typing.List[ophyd.Device]] = None):  # noqa:UP006,UP045
         # Default for 'detectors' is None, which is converted to the default list of detectors
         detectors = detectors or [_pp_dev2, _pp_dev3]
         yield from detectors
@@ -4601,7 +4609,7 @@ def _gen_environment_pp2():
             }
         }
     )
-    def plan4d(detectors: typing.Optional[typing.List[ophyd.Device]] = None):
+    def plan4d(detectors: typing.Optional[typing.List[ophyd.Device]] = None):  # noqa:UP006,UP045
         # Default for 'detectors' is None, which is converted to the default list of detectors
         detectors = detectors or [_pp_dev2, _pp_dev3]
         yield from detectors
@@ -4675,7 +4683,7 @@ def _gen_environment_pp2():
             }
         }
     )
-    def plan6(strings: typing.Union[typing.List[str], typing.Tuple[str]] = ("one", "three")):
+    def plan6(strings: typing.Union[typing.List[str], typing.Tuple[str]] = ("one", "three")):  # noqa:UP006,UP007
         yield from strings
 
     def plan7(a, b: str):
@@ -7204,17 +7212,22 @@ def test_validate_plan_2(allowed_plans, success):
     }
 )
 def _vp3a(
-    motors: typing.List[typing.Any],  # The actual type should be a list of 'ophyd.device.Device'
-    detectors: typing.List[typing.Any],  # The actual type should be a list of 'ophyd.device.Device'
-    plans_to_run: typing.Union[typing.List[callable], callable],
-    positions: typing.Union[typing.List[float], float, None] = 10,  # TYPE IS ACTUALLY USED FOR VALIDATION
+    # The actual type should be a list of 'ophyd.device.Device'
+    motors: typing.List[typing.Any],  # noqa: UP006
+    # The actual type should be a list of 'ophyd.device.Device'
+    detectors: typing.List[typing.Any],  # noqa: UP006
+    plans_to_run: typing.Union[typing.List[callable], callable],  # noqa: UP006, UP007
+    # TYPE IS ACTUALLY USED FOR VALIDATION
+    positions: typing.Union[typing.List[float], float, None] = 10,  # noqa: UP006, UP007
 ) -> typing.Generator[str, None, None]:  # Type should be 'bluesky.utils.Msg', not 'str'
     yield from ["one", "two", "three"]
 
 
 def _vp3b(
     detectors: typing.Iterable[protocols.Readable],
-    motors: typing.Optional[typing.Union[protocols.Movable, typing.Iterable[protocols.Movable]]] = None,
+    motors: typing.Optional[  # noqa: UP045
+        typing.Union[protocols.Movable, typing.Iterable[protocols.Movable]]  # noqa: UP007
+    ] = None,
 ):
     """
     Test if type Iterable can be used for the detector (device) list.
@@ -7391,7 +7404,7 @@ def test_validate_plan_3(plan_func, plan, allowed_devices, success, errmsg):
         },
     }
 )
-def _vp4a(num_int: int, v_float: float, v_list: typing.List[typing.Any]):
+def _vp4a(num_int: int, v_float: float, v_list: typing.List[typing.Any]):  # noqa: UP006
     yield from [num_int, v_float, v_list]
 
 
