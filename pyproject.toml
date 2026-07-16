@@ -55,11 +55,12 @@ dev = [
     "sphinx_rtd_theme",
     "pandas",
     "pyarrow",
-    "scikit-image",  # Needed for BEC/other stuff to run, factor out
     # Dependencies of ophyd-async
     "h5py",
     "aioca",
     "ophyd-async",
+    "build",
+    "twine",
 ]
 
 [project.scripts]
