@@ -1,3 +1,151 @@
+[build-system]
+requires = ["setuptools>=64", "setuptools_scm[toml]>=8"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "bluesky-queueserver"
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "License :: OSI Approved :: Apache Software License",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+]
+description = "Server for queueing and executing Bluesky plans."
+dependencies = [
+    "bluesky>=1.7.0",
+    "ipykernel",
+    "jsonschema",
+    "jupyter-client>=7.4.2",
+    "jupyter-console",
+    "numpydoc",
+    "openpyxl",
+    "ophyd",
+    "packaging",
+    "pydantic",
+    "python-multipart",
+    "pyyaml",
+    "pyzmq",
+    "redis[hiredis]",
+    "requests",
+]
+dynamic = ["version"]
+license = { file = "LICENSE" }
+readme = "README.rst"
+requires-python = ">=3.10"
+
+[project.optional-dependencies]
+dev = [
+    "coverage",
+    "ruff",
+    "happi>=1.14.0",
+    "pre-commit",
+    "pytest",
+    "pytest-xprocess",
+    "pytest-split",
+    "py",
+    "ipython",
+    "matplotlib",
+    "numpy",
+    "intake",
+    "numpydoc",
+    "scikit-image",
+    "sphinx",
+    "sphinx_rtd_theme",
+    "pandas",
+    "pyarrow",
+    # Dependencies of ophyd-async
+    "h5py",
+    "aioca",
+    "ophyd-async",
+    "build",
+    "twine",
+]
+
+[project.scripts]
+qserver = "bluesky_queueserver.manager.qserver_cli:qserver"
+start-re-manager = "bluesky_queueserver.manager.start_manager:start_manager"
+qserver-list-plans-devices = "bluesky_queueserver.manager.gen_lists:gen_list_of_plans_and_devices_cli"
+qserver-zmq-keys = "bluesky_queueserver.manager.qserver_cli:qserver_zmq_keys"
+qserver-clear-lock = "bluesky_queueserver.manager.qserver_cli:qserver_clear_lock"
+qserver-console = "bluesky_queueserver.manager.qserver_cli:qserver_console"
+qserver-qtconsole = "bluesky_queueserver.manager.qserver_cli:qserver_qtconsole"
+qserver-console-monitor = "bluesky_queueserver.manager.output_streaming:qserver_console_monitor_cli"
+
+[project.urls]
+GitHub = "https://github.com/bluesky/bluesky-queueserver"
+
+[[project.authors]] # Further authors may be added by duplicating this section
+name = "Brookhaven National Laboratory"
+
+[tool.setuptools_scm]
+version_file = "src/bluesky_queueserver/_version.py"
+
+[tool.mypy]
+ignore_missing_imports = true # Ignore missing stubs in imported modules
+
+[tool.pytest.ini_options]
+# Run pytest with all our checkers, and don't spam us with massive tracebacks on error
+# Don't collect the interactive directory which is intended for manual execution
+addopts = """
+    --tb=native -vv 
+    --doctest-modules 
+    --doctest-glob="*.rst" 
+    --ignore src/bluesky_queueserver/profile_collection_sim
+    """
+# https://iscinumpy.gitlab.io/post/bound-version-constraints/#watch-for-warnings
+filterwarnings = [
+    "error",
+    "ignore::PendingDeprecationWarning",
+    "ignore::UserWarning",
+    "ignore::DeprecationWarning",
+]
+# Doctest python code in docs, python code in src docstrings, test functions in tests
+testpaths = "src/bluesky_queueserver/tests;src/bluesky_queueserver/manager/tests"
+
+[tool.coverage.run]
+data_file = "/tmp/bluesky_queueserver.coverage"
+
+[tool.coverage.report]
+exclude_lines = ["if __name__ == '__main__':"]
+
+[tool.coverage.paths]
+# Tests are run from installed location, map back to the src directory
+source = ["src", "**/site-packages/"]
+
+[tool.ruff]
+src = ["src", "tests"]
+line-length = 115
+exclude = [
+    "docs/source/conf.py",
+    "docs/source/examples",
+]
+
+[tool.ruff.lint]
+select = [
+    "B",   # flake8-bugbear - https://docs.astral.sh/ruff/rules/#flake8-bugbear-b
+    "C4",  # flake8-comprehensions - https://docs.astral.sh/ruff/rules/#flake8-comprehensions-c4
+    "E",   # pycodestyle errors - https://docs.astral.sh/ruff/rules/#error-e
+    "F",   # pyflakes rules - https://docs.astral.sh/ruff/rules/#pyflakes-f
+    "W",   # pycodestyle warnings - https://docs.astral.sh/ruff/rules/#warning-w
+    "I",   # isort - https://docs.astral.sh/ruff/rules/#isort-i
+    "UP",  # pyupgrade - https://docs.astral.sh/ruff/rules/#pyupgrade-up
+]
+unfixable = [
+    "F401",
+    "UP006",  # ignore non-PEP 585 generic annotations (e.g. typing.List -> list)
+    "UP007",  # e.g. typing.Union[int, float] -> int | float
+    "UP045",  # e.g. typing.Optional[int] -> int | None
+]
+ignore = [
+    "B905",   # adding strict=False to every zip call is just noise
+    "C408",   # errors due to using dict()
+    "B011",   # do not use 'assert False' error
+]
+isort.required-imports = [
+]
+
 [tool.black]
 line-length = 115
 target-version = ['py310']
