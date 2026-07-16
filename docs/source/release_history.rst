@@ -20,6 +20,14 @@ Added
   The option can be set using CLI parameter ``--permitted-re-metadata-keys`` or environment variable
   ``QSERVER_PERMITTED_RE_METADATA_KEYS``.
 
+- Support for Python 3.14
+
+Fixed
+-----
+
+- Memory leak while operating in the loop mode.
+
+
 v0.0.24 (2026-01-21)
 ====================
 
