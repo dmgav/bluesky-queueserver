@@ -9,6 +9,9 @@ jobs:
 
     name: Upload to PyPI
 
+    permissions:
+      id-token: write
+
     if: github.repository_owner == 'bluesky'
     runs-on: ubuntu-latest
 
