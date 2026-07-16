@@ -37,7 +37,7 @@ jobs:
       - name: Build sdist and wheel
         run: >
           export SOURCE_DATE_EPOCH=$(git log -1 --pretty=%ct) &&
-          pixi run --environment=${{ env.python_env }} build
+          pixi run --environment=${{ env.python_env }} python -m build
 
       - name: Check for packaging errors
         run: pixi run --environment=${{ env.python_env }} twine check --strict dist/*
