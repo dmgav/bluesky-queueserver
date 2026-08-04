@@ -9,6 +9,7 @@ from bluesky_queueserver.manager.profile_ops import (
     load_script_into_existing_nspace,
 )
 
+
 def test_RunList_1():
     """
     Full functionality test: ``RunList`` class.
