@@ -207,6 +207,7 @@ _key_mapping = {
     "ipython_hb_port": "worker/ipython_hb_port",
     "ipython_control_port": "worker/ipython_control_port",
     "permitted_re_metadata_keys": "worker/permitted_re_metadata_keys",
+    "progress_streaming": "worker/progress_streaming",
     "print_console_output": "operation/print_console_output",
     "console_logging_level": "operation/console_logging_level",
     "update_existing_plans_devices": "operation/update_existing_plans_and_devices",
@@ -485,6 +486,12 @@ class Settings:
             value_config=self._get_value_from_config("permitted_re_metadata_keys"),
             value_ev=os.environ.get("QSERVER_PERMITTED_RE_METADATA_KEYS", "/").split(":"),
             value_cli=self._args_existing("permitted_re_metadata_keys"),
+        )
+
+        self._settings["progress_streaming"] = self._get_param_boolean(
+            value_default=args.progress_streaming,
+            value_config=self._get_value_from_config("progress_streaming"),
+            value_cli=self._args_existing("progress_streaming"),
         )
 
         existing_plans_and_devices_path = self._get_param(
