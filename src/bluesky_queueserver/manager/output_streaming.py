@@ -156,8 +156,12 @@ class PublishZMQStreamOutput:
         The messages added to the queue will be automatically published to 0MQ socket.
     console_output_on : boolean
         Enable/disable printing console output to the terminal
-    zmq_publish_on : boolean
-        Enable/disable publishing console output to 0MQ socket
+    zmq_publish_console : boolean
+        Enable/disable publishing console output to 0MQ socket (``QS_Console`` topic).
+    zmq_publish_info : boolean
+        Enable/disable publishing info/status messages to 0MQ socket (``QS_Info`` topic).
+    zmq_publish_progress : boolean
+        Enable/disable publishing progress messages to 0MQ socket (``QS_Progress`` topic).
     zmq_publish_addr : str, None
         Address of 0MQ PUB socket for the publishing server. If ``None``, then
         the default address ``tcp://*:60625`` is used.
@@ -167,6 +171,8 @@ class PublishZMQStreamOutput:
         Name of the 0MQ topic where the console messages are published.
     zmq_topic_info : str
         Name of the 0MQ topic where the system information messages are published.
+    zmq_topic_progress : str
+        Name of the 0MQ topic where the progress messages are published.
     name : str
         Name of the thread where the messages are published.
     """
@@ -176,7 +182,9 @@ class PublishZMQStreamOutput:
         *,
         msg_queue,
         console_output_on=True,
-        zmq_publish_on=True,
+        zmq_publish_console=True,
+        zmq_publish_info=True,
+        zmq_publish_progress=True,
         zmq_publish_addr=None,
         encoding="json",
         zmq_topic_console=_default_zmq_console_topic,
@@ -190,7 +198,9 @@ class PublishZMQStreamOutput:
         self._polling_timeout = 0.1  # in sec.
 
         self._console_output_on = console_output_on
-        self._zmq_publish_on = zmq_publish_on
+        self._zmq_publish_console = zmq_publish_console
+        self._zmq_publish_info = zmq_publish_info
+        self._zmq_publish_progress = zmq_publish_progress
 
         self._encoding = process_zmq_encoding_name(encoding)
 
@@ -201,22 +211,25 @@ class PublishZMQStreamOutput:
         self._zmq_topic_info = zmq_topic_info
         self._zmq_topic_progress = zmq_topic_progress
 
+        zmq_publish_on = zmq_publish_console or zmq_publish_info or zmq_publish_progress
+
         self._context = None
         self._socket = None
-        if self._zmq_publish_on:
+
+        if zmq_publish_on:
             try:
                 self._context = zmq.Context()
                 self._socket = self._context.socket(zmq.PUB)
                 self._socket.bind(self._zmq_publish_addr)
             except Exception as ex:
                 logger.error(
-                    "Failed to create 0MQ socket at %s. Console output will not be published. Exception: %s",
+                    "Failed to create 0MQ socket at %s. Output will not be published. Exception: %s",
                     self._zmq_publish_addr,
                     ex,
                 )
 
-        if self._socket and self._zmq_publish_on:
-            logging.info("Publishing console output to 0MQ socket at %s", zmq_publish_addr)
+        if self._socket and zmq_publish_on:
+            logging.info("Publishing output to 0MQ socket at %s", zmq_publish_addr)
 
     def start(self):
         """
@@ -263,15 +276,14 @@ class PublishZMQStreamOutput:
             sys.__stdout__.write(payload["msg"])
             sys.__stdout__.flush()
 
-        if self._zmq_publish_on and self._socket:
-            if channel == "console":
+        if self._socket:
+            if channel == "console" and self._zmq_publish_console:
                 topic = self._zmq_topic_console
-            elif channel == "info":
+            elif channel == "info" and self._zmq_publish_info:
                 topic = self._zmq_topic_info
-            elif channel == "progress":
+            elif channel == "progress" and self._zmq_publish_progress:
                 topic = self._zmq_topic_progress
             else:
-                logger.error("Failed to publish the message: unsupported 0MQ channel %s.", channel)
                 return
             payload = {k: payload[k] for k in ("time", "msg")}
             if self._encoding == ZMQEncoding.JSON:

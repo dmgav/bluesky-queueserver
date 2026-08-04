@@ -62,7 +62,7 @@ def test_zmq_info_streaming_1(monkeypatch, re_manager_cmd, stream_enabled):  # n
 
     params_server = [f"--zmq-info-addr={address_info_server}"]
     if stream_enabled is not None:
-        params_server.append(f"--zmq-publish-console={'ON' if stream_enabled else 'OFF'}")
+        params_server.append(f"--zmq-publish-info={'ON' if stream_enabled else 'OFF'}")
 
     zmq_encoding = use_zmq_encoding_for_tests()
 

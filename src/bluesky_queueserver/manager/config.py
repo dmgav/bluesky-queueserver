@@ -185,6 +185,8 @@ _key_mapping = {
     "zmq_info_addr": "network/zmq_info_addr",
     "zmq_encoding": "network/zmq_encoding",
     "zmq_publish_console": "network/zmq_publish_console",
+    "zmq_publish_info": "network/zmq_publish_info",
+    "zmq_publish_progress": "network/zmq_publish_progress",
     "redis_addr": "network/redis_addr",
     "redis_name_prefix": "network/redis_name_prefix",
     "ignore_invalid_plans": "startup/ignore_invalid_plans",
@@ -207,7 +209,6 @@ _key_mapping = {
     "ipython_hb_port": "worker/ipython_hb_port",
     "ipython_control_port": "worker/ipython_control_port",
     "permitted_re_metadata_keys": "worker/permitted_re_metadata_keys",
-    "progress_streaming": "worker/progress_streaming",
     "print_console_output": "operation/print_console_output",
     "console_logging_level": "operation/console_logging_level",
     "update_existing_plans_devices": "operation/update_existing_plans_and_devices",
@@ -356,6 +357,18 @@ class Settings:
             value_cli=self._args_existing("zmq_publish_console"),
         )
 
+        self._settings["zmq_publish_info"] = self._get_param_boolean(
+            value_default=args.zmq_publish_info,
+            value_config=self._get_value_from_config("zmq_publish_info"),
+            value_cli=self._args_existing("zmq_publish_info"),
+        )
+
+        self._settings["zmq_publish_progress"] = self._get_param_boolean(
+            value_default=args.zmq_publish_progress,
+            value_config=self._get_value_from_config("zmq_publish_progress"),
+            value_cli=self._args_existing("zmq_publish_progress"),
+        )
+
         redis_addr = self._get_param(
             value_default=self._args.redis_addr,
             value_config=self._get_value_from_config("redis_addr"),
@@ -486,12 +499,6 @@ class Settings:
             value_config=self._get_value_from_config("permitted_re_metadata_keys"),
             value_ev=os.environ.get("QSERVER_PERMITTED_RE_METADATA_KEYS", "/").split(":"),
             value_cli=self._args_existing("permitted_re_metadata_keys"),
-        )
-
-        self._settings["progress_streaming"] = self._get_param_boolean(
-            value_default=args.progress_streaming,
-            value_config=self._get_value_from_config("progress_streaming"),
-            value_cli=self._args_existing("progress_streaming"),
         )
 
         existing_plans_and_devices_path = self._get_param(
