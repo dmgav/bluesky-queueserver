@@ -307,6 +307,7 @@ def start_manager():
         "must point to an existing file or directory (may be empty), otherwise the manager can not "
         "be started.",
     )
+
     parser.add_argument(
         "--zmq-control-addr",
         dest="zmq_control_addr",
@@ -317,13 +318,7 @@ def start_manager():
         "the parameter or the environment variable is not defined. Address format: 'tcp://*:60615' "
         f"(default: {default_zmq_control_address_for_server!r}).",
     )
-    parser.add_argument(
-        "--zmq-addr",
-        dest="zmq_addr",
-        type=str,
-        default=None,
-        help="The parameter is deprecated and will be removed in future releases. Use --zmq-control-addr instead.",
-    )
+
     parser.add_argument(
         "--zmq-encoding",
         dest="zmq_encoding",
@@ -464,15 +459,6 @@ def start_manager():
         type=str,
         default="qs_default",
         help="The prefix for the names of Redis keys used by RE Manager (default: %(default)s). ",
-    )
-
-    parser.add_argument(
-        "--keep-re",
-        dest="keep_re",
-        action="store_true",
-        help="The parameter is deprecated. The value is ignored by the Queue Server. Run Engine instance\n"
-        "must always be defined and configured in the startup code. The parameter will be removed\n"
-        "in future releases.",
     )
 
     group_ip_kernel = parser.add_argument_group(
@@ -630,14 +616,6 @@ def start_manager():
     )
 
     group_console_output.add_argument(
-        "--zmq-publish-console-addr",
-        dest="zmq_publish_console_addr",
-        type=str,
-        default=None,
-        help="The parameter is deprecated and will be removed in future releases. Use --zmq-info-addr instead.",
-    )
-
-    group_console_output.add_argument(
         "--zmq-publish-console",
         dest="zmq_publish_console",
         type=str,
@@ -686,12 +664,6 @@ def start_manager():
     args = parser.parse_args()
 
     settings = Settings(parser=parser, args=args)
-
-    if args.zmq_publish_console_addr is not None:
-        logger.warning(
-            "Parameter --zmq-publish-console-addr is deprecated and will be removed in future releases. "
-            "Use --zmq-info-addr instead."
-        )
 
     msg_queue = Queue()
     setup_console_output_redirection(msg_queue)

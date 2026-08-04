@@ -166,7 +166,6 @@ network:
   redis_addr: localhost:6379
   redis_name_prefix: qs_test
 startup:
-  keep_re: true
   startup_dir: ~/.ipython/profile_collection/startup
   existing_plans_and_devices_path: ~/.ipython/profile_collection/startup
   user_group_permissions_path: ~/.ipython/profile_collection/startup
@@ -206,7 +205,6 @@ network:
 
 config_01b_success = """
 startup:
-  keep_re: true
   startup_dir: ~/.ipython/profile_collection/startup
   existing_plans_and_devices_path: ~/.ipython/profile_collection/startup
   user_group_permissions_path: ~/.ipython/profile_collection/startup
@@ -250,7 +248,6 @@ config_01_dict = {
         "redis_name_prefix": "qs_test",
     },
     "startup": {
-        "keep_re": True,
         "startup_dir": "~/.ipython/profile_collection/startup",
         "existing_plans_and_devices_path": "~/.ipython/profile_collection/startup",
         "user_group_permissions_path": "~/.ipython/profile_collection/startup",
@@ -280,10 +277,10 @@ config_01_dict = {
 
 config_02_success = """
 startup:
-  keep_re: true
+  device_max_depth: 0
 """
 
-config_02_dict = {"startup": {"keep_re": True}}
+config_02_dict = {"startup": {"device_max_depth": 0}}
 
 # 'startup_dir' and 'startup_script' are mutually exclusive
 config_03_fail = """
