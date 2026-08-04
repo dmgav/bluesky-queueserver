@@ -1,8 +1,11 @@
 import copy
 import logging
 import threading
+import time as ttime
 
 from bluesky.callbacks.core import CallbackBase
+
+from .output_streaming import push_progress_to_msg_queue
 
 logger = logging.getLogger(__name__)
 
@@ -205,3 +208,140 @@ class CallbackRegisterRun(CallbackBase):
             logger.info("Run was closed: %r", uid)
         except Exception as ex:
             logger.exception("RE Manager: Failed to label run as closed: %s", ex)
+
+
+def _to_json_safe(value):
+    """
+    Coerce a value to a JSON-serializable type. Returns ``None`` for values
+    that cannot be represented as a number or string.
+    """
+    if value is None:
+        return None
+    if isinstance(value, (int, float, bool)):
+        return value
+    if isinstance(value, str):
+        return value
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return str(value)
+
+
+class WatcherStreamManager:
+    """
+    RunEngine ``waiting_hook``-compatible class. Instead of rendering progress bars,
+    it serializes watcher updates and pushes them to ``msg_queue`` on the ``"progress"``
+    channel (``QS_Progress`` 0MQ topic) so they are published to 0MQ / websocket subscribers.
+
+    The RunEngine calls instances of this class with a set of Status objects each time
+    it enters a wait, and with ``None`` when the wait completes. For each status object
+    that supports ``watch()``, a callback is registered that streams position/progress
+    updates.
+
+    Parameters
+    ----------
+    msg_queue : multiprocessing.Queue
+        Reference to the shared message queue used for publishing messages.
+    min_update_period : float
+        Minimum interval in seconds between published updates for a single status
+        object. The final update (when the status is done) is always sent regardless
+        of throttling. Default: ``0.2``.
+    """
+
+    def __init__(self, *, msg_queue, min_update_period=0.2):
+        self._msg_queue = msg_queue
+        self._min_update_period = min_update_period
+        # Track status objects we have already subscribed to, keyed by id(status)
+        self._watched = set()
+        self._last_sent = {}  # id(status) -> timestamp of last sent update
+        self._status_counter = 0  # Counter for generating labels when name is None
+
+    def __call__(self, status_objs_or_none):
+        """
+        Called by the RunEngine with a set of Status objects or ``None``.
+        """
+        if status_objs_or_none is None:
+            # Waiting is complete — send a completion message and reset state
+            self._send_completed()
+            self._watched.clear()
+            self._last_sent.clear()
+            self._status_counter = 0
+            return
+
+        for st in status_objs_or_none:
+            st_id = id(st)
+            if st_id in self._watched:
+                continue
+            self._watched.add(st_id)
+            if not hasattr(st, "watch") or getattr(st, "done", False):
+                continue
+            try:
+                self._status_counter += 1
+                label = self._status_counter
+                st.watch(self._make_callback(st, label))
+            except Exception:
+                logger.debug("Status object does not support watch(): %r", st, exc_info=True)
+
+    def _make_callback(self, status_obj, label):
+        """
+        Create a watch callback bound to a specific status object.
+        """
+        st_id = id(status_obj)
+
+        def _cb(
+            *,
+            name=None,
+            current=None,
+            initial=None,
+            target=None,
+            unit=None,
+            precision=None,
+            fraction=None,
+            time_elapsed=None,
+            time_remaining=None,
+            **kwargs,
+        ):
+            now = ttime.time()
+            done = getattr(status_obj, "done", False)
+
+            # Throttle: skip non-final updates that arrive too quickly
+            last = self._last_sent.get(st_id, 0)
+            if not done and (now - last) < self._min_update_period:
+                return
+            self._last_sent[st_id] = now
+
+            if done:
+                # Clean up tracking for this status
+                self._last_sent.pop(st_id, None)
+
+            display_name = name if name is not None else f"Status {label}"
+
+            payload = {
+                "name": display_name,
+                "current": _to_json_safe(current),
+                "initial": _to_json_safe(initial),
+                "target": _to_json_safe(target),
+                "unit": unit,
+                "precision": precision,
+                "fraction": fraction,
+                "time_elapsed": time_elapsed,
+                "time_remaining": time_remaining,
+                "done": bool(done),
+            }
+
+            try:
+                push_progress_to_msg_queue(msg=payload, msg_queue=self._msg_queue)
+            except Exception:
+                logger.debug("Failed to push progress update to msg_queue", exc_info=True)
+
+        return _cb
+
+    def _send_completed(self):
+        """
+        Send a message indicating that the waiting period is complete (all statuses done).
+        """
+        payload = {"completed": True}
+        try:
+            push_progress_to_msg_queue(msg=payload, msg_queue=self._msg_queue)
+        except Exception:
+            logger.debug("Failed to push progress completion to msg_queue", exc_info=True)
