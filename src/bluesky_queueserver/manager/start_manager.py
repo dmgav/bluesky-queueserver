@@ -595,6 +595,16 @@ def start_manager():
         "environment variable, where the keys are separated by colons.",
     )
 
+    parser.add_argument(
+        "--progress-streaming",
+        dest="progress_streaming",
+        type=str,
+        choices=["ON", "OFF"],
+        default="ON",
+        help="Enable (ON) or disable (OFF) streaming of RunEngine waiting/progress updates "
+        "to 0MQ info subscribers (default: %(default)s).",
+    )
+
     group_console_output = parser.add_argument_group(
         "Configure console output",
         "The arguments allow to configure printing and publishing of the console output\n"
@@ -779,6 +789,7 @@ def start_manager():
     config_worker["ipython_control_port"] = settings.ipython_control_port
     config_worker["ignore_invalid_plans"] = settings.ignore_invalid_plans
     config_worker["permitted_re_metadata_keys"] = settings.permitted_re_metadata_keys
+    config_worker["progress_streaming"] = settings.progress_streaming
 
     existing_pd_path = settings.existing_plans_and_devices_path
     if not existing_pd_path:
