@@ -828,9 +828,10 @@ def qserver_console_monitor_cli():
         dest="zmq_info_addr",
         type=str,
         default=None,
-        help="The address of RE Manager socket used for publishing console output. The parameter overrides "
-        "the address set using QSERVER_ZMQ_INFO_ADDRESS environment variable. The default value is used "
-        "if the address is not set using the parameter or the environment variable. Address format: "
+        help="The address of RE Manager socket used for publishing console output, status info, and "
+        "progress updates. The parameter overrides the address set using QSERVER_ZMQ_INFO_ADDRESS "
+        "environment variable. The default value is used if the address is not set using the parameter "
+        "or the environment variable. Address format: "
         f"'tcp://127.0.0.1:60625' (default: {default_zmq_info_address}).",
     )
 

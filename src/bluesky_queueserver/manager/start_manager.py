@@ -607,9 +607,8 @@ def start_manager():
         dest="zmq_info_addr",
         type=str,
         default=None,
-        help="The address of ZMQ server socket used for publishing information on the state of RE Manager "
-        "and currently running processes. Currently only the captured STDOUT and STDERR published "
-        "in 'QS_Console' topic. The parameter overrides the address defined by the environment variable "
+        help="The address of ZMQ PUB socket used for publishing console output, status info, and "
+        "progress updates. The parameter overrides the address defined by the environment variable "
         "'QSERVER_ZMQ_INFO_ADDRESS_FOR_SERVER'. The default address is used if the parameter or the environment "
         " variable is not defined. Address format: 'tcp://*:60625' "
         f"(default: {default_zmq_info_address_for_server}).",
