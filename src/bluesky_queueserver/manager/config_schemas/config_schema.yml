@@ -54,6 +54,8 @@ properties:
         uniqueItems: true
         items:
           type: string
+      progress_streaming:
+        type: boolean
   startup:
     oneOf:
       - type: object
