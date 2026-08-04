@@ -2,8 +2,12 @@ import uuid
 
 import pytest
 
-from bluesky_queueserver.manager.plan_monitoring import CallbackRegisterRun, RunList
-
+from bluesky_queueserver.manager.plan_monitoring import CallbackRegisterRun, RunList, WatcherStreamManager
+from bluesky_queueserver.manager.profile_ops import (
+    get_default_startup_dir,
+    load_profile_collection,
+    load_script_into_existing_nspace,
+)
 
 def test_RunList_1():
     """
@@ -135,3 +139,306 @@ def test_CallbackRegisterRun_1(scan_id):
     assert run_list.get_run_list() == [{"uid": uid, "is_open": True, "exit_status": None, **param_expected}]
     cb("stop", {"run_start": uid, "exit_status": "success"})
     assert run_list.get_run_list() == [{"uid": uid, "is_open": False, "exit_status": "success", **param_expected}]
+
+
+
+class _MockQueue:
+    """A simple list-backed mock for multiprocessing.Queue."""
+
+    def __init__(self):
+        self.messages = []
+
+    def put(self, msg):
+        self.messages.append(msg)
+
+
+class _MockStatus:
+    """A mock Status object that supports watch()."""
+
+    def __init__(self, *, name="motor1", done=False, supports_watch=True):
+        self._name = name
+        self.done = done
+        self._supports_watch = supports_watch
+        self._watchers = []
+
+    def watch(self, func):
+        if not self._supports_watch:
+            raise AttributeError("watch not supported")
+        self._watchers.append(func)
+
+    def simulate_update(self, **kwargs):
+        """Simulate a watcher callback from the status object."""
+        defaults = dict(
+            name=self._name,
+            current=None,
+            initial=None,
+            target=None,
+            unit=None,
+            precision=None,
+            fraction=None,
+            time_elapsed=None,
+            time_remaining=None,
+        )
+        defaults.update(kwargs)
+        for w in self._watchers:
+            w(**defaults)
+
+
+def _get_progress_messages(mock_queue):
+    """Extract only progress payloads from the mock queue."""
+    results = []
+    for msg in mock_queue.messages:
+        if msg.get("channel") == "progress" and isinstance(msg.get("msg"), dict):
+            results.append(msg["msg"])
+    return results
+
+
+def test_WatcherStreamManager_basic():
+    """
+    WatcherStreamManager subscribes to status objects and publishes progress updates.
+    """
+    mq = _MockQueue()
+    wsm = WatcherStreamManager(msg_queue=mq, min_update_period=0)
+
+    st = _MockStatus(name="motor1")
+    wsm({st})
+
+    # Simulate an update
+    st.simulate_update(current=1.0, initial=0.0, target=5.0, unit="mm", precision=3, fraction=0.2)
+
+    msgs = _get_progress_messages(mq)
+    assert len(msgs) == 1
+    assert msgs[0]["name"] == "motor1"
+    assert msgs[0]["current"] == 1.0
+    assert msgs[0]["target"] == 5.0
+    assert msgs[0]["unit"] == "mm"
+    assert msgs[0]["done"] is False
+
+    # Simulate completion
+    st.done = True
+    st.simulate_update(current=5.0, initial=0.0, target=5.0, fraction=1.0)
+
+    msgs = _get_progress_messages(mq)
+    assert len(msgs) == 2
+    assert msgs[1]["done"] is True
+    assert msgs[1]["current"] == 5.0
+
+
+def test_WatcherStreamManager_none_clears():
+    """
+    Calling with None sends a completed message and resets state.
+    """
+    mq = _MockQueue()
+    wsm = WatcherStreamManager(msg_queue=mq, min_update_period=0)
+
+    st = _MockStatus(name="motor1")
+    wsm({st})
+    st.simulate_update(current=1.0)
+
+    # Signal end of waiting
+    wsm(None)
+
+    msgs = _get_progress_messages(mq)
+    # Last message should be the completion indicator
+    assert msgs[-1] == {"completed": True}
+
+
+def test_WatcherStreamManager_no_resubscribe():
+    """
+    Calling with the same status object multiple times does not re-subscribe.
+    """
+    mq = _MockQueue()
+    wsm = WatcherStreamManager(msg_queue=mq, min_update_period=0)
+
+    st = _MockStatus(name="motor1")
+    wsm({st})
+    wsm({st})
+    wsm({st})
+
+    # Should have exactly one watcher registered
+    assert len(st._watchers) == 1
+
+
+def test_WatcherStreamManager_throttling():
+    """
+    Updates that arrive faster than min_update_period are suppressed,
+    except for the final (done) update.
+    """
+    mq = _MockQueue()
+    # Set a very long throttle period so all non-final updates are suppressed
+    wsm = WatcherStreamManager(msg_queue=mq, min_update_period=9999)
+
+    st = _MockStatus(name="motor1")
+    wsm({st})
+
+    # First update always goes through (last_sent starts at 0)
+    st.simulate_update(current=1.0)
+    # Second update should be throttled
+    st.simulate_update(current=2.0)
+    # Third update should be throttled
+    st.simulate_update(current=3.0)
+
+    msgs = _get_progress_messages(mq)
+    assert len(msgs) == 1  # Only the first one
+
+    # Final update (done=True) must always go through
+    st.done = True
+    st.simulate_update(current=5.0)
+
+    msgs = _get_progress_messages(mq)
+    assert len(msgs) == 2
+    assert msgs[1]["done"] is True
+
+
+def test_WatcherStreamManager_no_watch_support():
+    """
+    Status objects without watch() are silently ignored.
+    """
+    mq = _MockQueue()
+    wsm = WatcherStreamManager(msg_queue=mq, min_update_period=0)
+
+    st = _MockStatus(supports_watch=False)
+    # Should not raise
+    wsm({st})
+
+    msgs = _get_progress_messages(mq)
+    assert len(msgs) == 0
+
+
+def test_WatcherStreamManager_already_done():
+    """
+    Status objects that are already done are not subscribed to.
+    """
+    mq = _MockQueue()
+    wsm = WatcherStreamManager(msg_queue=mq, min_update_period=0)
+
+    st = _MockStatus(done=True)
+    wsm({st})
+
+    assert len(st._watchers) == 0
+
+
+def test_WatcherStreamManager_no_watch_attr():
+    """
+    Objects without a watch attribute at all are ignored.
+    """
+    mq = _MockQueue()
+    wsm = WatcherStreamManager(msg_queue=mq, min_update_period=0)
+
+    class _BareStatus:
+        done = False
+
+    wsm({_BareStatus()})
+    msgs = _get_progress_messages(mq)
+    assert len(msgs) == 0
+
+
+def test_WatcherStreamManager_multiple_statuses():
+    """
+    Multiple concurrent status objects each get their own progress stream.
+    """
+    mq = _MockQueue()
+    wsm = WatcherStreamManager(msg_queue=mq, min_update_period=0)
+
+    st1 = _MockStatus(name="motor1")
+    st2 = _MockStatus(name="motor2")
+    wsm({st1, st2})
+
+    st1.simulate_update(current=1.0, target=5.0)
+    st2.simulate_update(current=10.0, target=20.0)
+
+    msgs = _get_progress_messages(mq)
+    assert len(msgs) == 2
+    names = {m["name"] for m in msgs}
+    assert names == {"motor1", "motor2"}
+
+
+def test_WatcherStreamManager_name_none():
+    """
+    If the watch callback receives name=None, a generated label is used.
+    """
+    mq = _MockQueue()
+    wsm = WatcherStreamManager(msg_queue=mq, min_update_period=0)
+
+    st = _MockStatus(name=None)
+    wsm({st})
+    st.simulate_update(name=None, current=1.0)
+
+    msgs = _get_progress_messages(mq)
+    assert len(msgs) == 1
+    assert msgs[0]["name"].startswith("Status ")
+
+
+def test_WatcherStreamManager_json_safe_coercion():
+    """
+    Non-JSON-safe values for current/initial/target are coerced.
+    """
+    import numpy as np
+
+    mq = _MockQueue()
+    wsm = WatcherStreamManager(msg_queue=mq, min_update_period=0)
+
+    st = _MockStatus(name="motor1")
+    wsm({st})
+    st.simulate_update(current=np.float64(3.14), initial=np.int32(0), target=np.float64(10.0))
+
+    msgs = _get_progress_messages(mq)
+    assert len(msgs) == 1
+    assert isinstance(msgs[0]["current"], float)
+    assert isinstance(msgs[0]["initial"], float)
+    assert isinstance(msgs[0]["target"], float)
+
+
+def test_WatcherStreamManager_sim_motor_move():
+    """
+    Integration test: load the simulated profile collection, append a script
+    that creates a slow motor, attach WatcherStreamManager to the RunEngine,
+    move the motor, and verify that progress updates were published to the queue.
+    """
+
+    # Load the simulated profile collection
+    startup_dir = get_default_startup_dir()
+    nspace = load_profile_collection(startup_dir, patch_profiles=True)
+
+    # Append a script that creates a slow motor (non-zero delay so watch fires)
+    script = """
+from ophyd.sim import SynAxis
+slow_motor = SynAxis(name="slow_motor", labels={"motors"})
+slow_motor.delay = 0.3
+"""
+    load_script_into_existing_nspace(
+        script=script,
+        nspace=nspace,
+        script_root_path=startup_dir,
+    )
+
+    RE = nspace["RE"]
+    slow_motor = nspace["slow_motor"]
+
+    # Attach WatcherStreamManager
+    mq = _MockQueue()
+    wsm = WatcherStreamManager(msg_queue=mq, min_update_period=0)
+    RE.waiting_hook = wsm
+
+    # Move the motor from 0 to 1 — this triggers waiting_hook with a MoveStatus
+    RE(nspace["mv"](slow_motor, 1))
+
+    msgs = _get_progress_messages(mq)
+
+    # We should have received at least one progress update and one completed message
+    progress_updates = [m for m in msgs if "completed" not in m]
+    completed_msgs = [m for m in msgs if m.get("completed") is True]
+
+    assert len(progress_updates) > 0, "Expected at least one progress update during motor move"
+    assert len(completed_msgs) >= 1, "Expected a 'completed' message after motor move"
+
+    # Verify the structure of a progress update
+    update = progress_updates[0]
+    assert "name" in update
+    assert "current" in update
+    assert "target" in update
+    assert update["done"] in (True, False)
+    assert update["name"] == "slow_motor"
+
+    # The target should be 1 (where we moved the motor)
+    assert update["target"] == 1
