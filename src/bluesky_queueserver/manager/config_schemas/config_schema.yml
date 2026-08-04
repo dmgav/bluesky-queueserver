@@ -59,8 +59,6 @@ properties:
       - type: object
         additionalProperties: false
         properties:
-          keep_re:
-            type: boolean
           device_max_depth:
             type: integer
           ignore_invalid_plans:
@@ -83,8 +81,6 @@ properties:
           - type: object
             additionalProperties: false
             properties:
-              keep_re:
-                type: boolean
               device_max_depth:
                 type: integer
               ignore_invalid_plans:
@@ -96,8 +92,6 @@ properties:
           - type: object
             additionalProperties: false
             properties:
-              keep_re:
-                type: boolean
               device_max_depth:
                 type: integer
               ignore_invalid_plans:
@@ -114,8 +108,6 @@ properties:
           - type: object
             additionalProperties: false
             properties:
-              keep_re:
-                type: boolean
               device_max_depth:
                 type: integer
               ignore_invalid_plans:
@@ -132,8 +124,6 @@ properties:
           - type: object
             additionalProperties: false
             properties:
-              keep_re:
-                type: boolean
               device_max_depth:
                 type: integer
               ignore_invalid_plans:
@@ -153,8 +143,6 @@ properties:
           - type: object
             additionalProperties: false
             properties:
-              keep_re:
-                type: boolean
               device_max_depth:
                 type: integer
               ignore_invalid_plans:
@@ -171,8 +159,6 @@ properties:
           - type: object
             additionalProperties: false
             properties:
-              keep_re:
-                type: boolean
               device_max_depth:
                 type: integer
               ignore_invalid_plans:
@@ -189,8 +175,6 @@ properties:
           - type: object
             additionalProperties: false
             properties:
-              keep_re:
-                type: boolean
               device_max_depth:
                 type: integer
               ignore_invalid_plans:
@@ -207,8 +191,6 @@ properties:
           - type: object
             additionalProperties: false
             properties:
-              keep_re:
-                type: boolean
               device_max_depth:
                 type: integer
               ignore_invalid_plans:
@@ -228,8 +210,6 @@ properties:
           - type: object
             additionalProperties: false
             properties:
-              keep_re:
-                type: boolean
               device_max_depth:
                 type: integer
               ignore_invalid_plans:
@@ -249,8 +229,6 @@ properties:
           - type: object
             additionalProperties: false
             properties:
-              keep_re:
-                type: boolean
               device_max_depth:
                 type: integer
               ignore_invalid_plans:
@@ -273,8 +251,6 @@ properties:
           - type: object
             additionalProperties: false
             properties:
-              keep_re:
-                type: boolean
               device_max_depth:
                 type: integer
               ignore_invalid_plans:
@@ -294,8 +270,6 @@ properties:
           - type: object
             additionalProperties: false
             properties:
-              keep_re:
-                type: boolean
               device_max_depth:
                 type: integer
               ignore_invalid_plans:
@@ -315,8 +289,6 @@ properties:
           - type: object
             additionalProperties: false
             properties:
-              keep_re:
-                type: boolean
               device_max_depth:
                 type: integer
               ignore_invalid_plans:

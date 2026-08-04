@@ -187,7 +187,6 @@ _key_mapping = {
     "zmq_publish_console": "network/zmq_publish_console",
     "redis_addr": "network/redis_addr",
     "redis_name_prefix": "network/redis_name_prefix",
-    "keep_re": "startup/keep_re",
     "ignore_invalid_plans": "startup/ignore_invalid_plans",
     "existing_plans_and_devices_path": "startup/existing_plans_and_devices_path",
     "user_group_permissions_path": "startup/user_group_permissions_path",
@@ -334,7 +333,7 @@ class Settings:
             value_default=default_zmq_info_address_for_server,
             value_ev=os.environ.get("QSERVER_ZMQ_INFO_ADDRESS_FOR_SERVER", None),
             value_config=self._get_value_from_config("zmq_info_addr"),
-            value_cli=self._args_existing("zmq_info_addr") or self._args_existing("zmq_publish_console_addr"),
+            value_cli=self._args_existing("zmq_info_addr"),
         )
 
         zmq_encoding = self._get_param(
@@ -371,12 +370,6 @@ class Settings:
         if not isinstance(redis_name_prefix, str):
             raise ConfigError(f"Redis name prefix must be a string: {redis_name_prefix!r}")
         self._settings["redis_name_prefix"] = redis_name_prefix
-
-        # Print warnings if deprecated parameter is used
-        if self._args_existing("keep_re"):
-            logger.warning("The CLI parameter '--keep-re' is deprecated and will be removed in future releases.")
-        if self._get_value_from_config("keep_re") is not None:
-            logger.warning("The config parameter 'keep_re' is deprecated and will be removed in future releases.")
 
         device_max_depth = self._get_param(
             value_default=self._args.device_max_depth,
@@ -855,12 +848,7 @@ class Settings:
         Returns 0MQ control address (string).
         """
         zmq_control_addr_cli = self._args.zmq_control_addr
-        if self._args.zmq_addr is not None:
-            logger.warning(
-                "Parameter --zmq-addr is deprecated and will be removed in future releases. "
-                "Use --zmq-control-addr instead."
-            )
-        zmq_control_addr_cli = zmq_control_addr_cli or self._args.zmq_addr
+        zmq_control_addr_cli = zmq_control_addr_cli
 
         zmq_control_addr = self._get_param(
             value_default=default_zmq_control_address_for_server,

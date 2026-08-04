@@ -546,7 +546,6 @@ worker:
     - /c
     - /d/
 startup:
-  keep_re: false
   device_max_depth: 2
   ignore_invalid_plans: true
   startup_dir: {1}
@@ -635,7 +634,6 @@ def _get_cli_params_3(file_dir):
         "--user-group-permissions-reload=NEVER",
         "--redis-addr=localhost:6379",
         "--redis-name-prefix=qs_unit_tests3",
-        "--keep-re",
         "--device-max-depth=5",
         "--ignore-invalid-plans=ON",
         f"--use-ipython-kernel={use_ip_kernel}",
