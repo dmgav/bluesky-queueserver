@@ -304,13 +304,23 @@ class WatcherStreamManager:
             now = ttime.time()
             done = getattr(status_obj, "done", False)
 
+            # The final update (the status reached its target) must never be throttled,
+            # otherwise progress bars may freeze just short of 100%. ophyd status objects
+            # emit their last watcher update with ``current == target`` *before* ``done``
+            # is set (watchers are cleared once the status settles), and ophyd reports
+            # ``fraction`` as the fraction *remaining* (0 when the target is reached).
+            at_target = (fraction is not None and fraction <= 0) or (
+                current is not None and target is not None and current == target
+            )
+            is_final = bool(done) or at_target
+
             # Throttle: skip non-final updates that arrive too quickly
             last = self._last_sent.get(st_id, 0)
-            if not done and (now - last) < self._min_update_period:
+            if not is_final and (now - last) < self._min_update_period:
                 return
             self._last_sent[st_id] = now
 
-            if done:
+            if is_final:
                 # Clean up tracking for this status
                 self._last_sent.pop(st_id, None)
 
@@ -326,7 +336,7 @@ class WatcherStreamManager:
                 "fraction": fraction,
                 "time_elapsed": time_elapsed,
                 "time_remaining": time_remaining,
-                "done": bool(done),
+                "done": is_final,
             }
 
             try:
