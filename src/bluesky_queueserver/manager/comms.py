@@ -694,7 +694,7 @@ class ZMQCommSendThreads:
         zmq_server_address = zmq_server_address or default_zmq_control_address
 
         # ZeroMQ communication
-        self._ctx = zmq.Context()
+        self._ctx = None
         self._zmq_socket = None
         self._zmq_server_address = zmq_server_address
 
@@ -888,6 +888,7 @@ class ZMQCommSendThreads:
         """
         Open ZMQ socket.
         """
+        self._ctx = zmq.Context()
         self._zmq_socket = self._ctx.socket(zmq.REQ)
 
         if self._server_public_key:
@@ -910,12 +911,24 @@ class ZMQCommSendThreads:
         logger.info("Connected to ZeroMQ server '%s'", self._zmq_server_address)
         logger.info("ZMQ encryption: %s", "disabled" if self._server_public_key is None else "enabled")
 
+    def _zmq_socket_close(self):
+        """
+        Close ZMQ socket.
+        """
+        if self._zmq_socket is not None:
+            self._zmq_socket.close()
+            self._zmq_socket = None
+        if self._ctx is not None:
+            self._ctx.term()
+            self._ctx = None
+
+
     def _zmq_socket_restart(self):
         """
         Restart (close and open the socket). Should be called in case of communication
         error (e.g. the server did not return the response).
         """
-        self._zmq_socket.close()
+        self._zmq_socket_close()
         self._zmq_socket_open()
 
     def _create_msg(self, *, method, params=None):
@@ -996,9 +1009,8 @@ class ZMQCommSendThreads:
         Close ZMQ socket. Call to close socket if the object is no longer needed, but may
         not be destroyed for some time.
         """
-        if self._zmq_socket is not None:
-            self._zmq_socket.close()
         self._thread_running = False
+        self._zmq_socket_close()
 
 
 class ZMQCommSendAsync:
@@ -1070,7 +1082,7 @@ class ZMQCommSendAsync:
         self._raise_exceptions = raise_exceptions
 
         # ZeroMQ communication
-        self._ctx = zmq.asyncio.Context()
+        self._ctx = None
         self._zmq_socket = None
         self._zmq_server_address = zmq_server_address
 
@@ -1127,6 +1139,7 @@ class ZMQCommSendAsync:
         return msg_in
 
     def _zmq_socket_open(self):
+        self._ctx = zmq.asyncio.Context()
         self._zmq_socket = self._ctx.socket(zmq.REQ)
 
         if self._server_public_key:
@@ -1149,8 +1162,16 @@ class ZMQCommSendAsync:
         logger.info("Connected to ZeroMQ server '%s'", self._zmq_server_address)
         logger.info("ZMQ encryption: %s", "disabled" if self._server_public_key is None else "enabled")
 
+    def _zmq_socket_close(self):
+        if self._zmq_socket is not None:
+            self._zmq_socket.close()
+            self._zmq_socket = None
+        if self._ctx is not None:
+            self._ctx.term()
+            self._ctx = None
+
     def _zmq_socket_restart(self):
-        self._zmq_socket.close()
+        self._zmq_socket_close()
         self._zmq_socket_open()
 
     def _create_msg(self, *, method, params=None):
@@ -1216,8 +1237,7 @@ class ZMQCommSendAsync:
         Close ZMQ socket. Call to close socket if the object is no longer needed, but may
         not be destroyed for some time.
         """
-        if self._zmq_socket:
-            self._zmq_socket.close()
+        self._zmq_socket_close()
 
 
 def zmq_single_request(
