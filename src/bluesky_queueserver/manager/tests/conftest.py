@@ -21,13 +21,12 @@ def close_dangling_event_loops():
     Dangling loops are mostly due to RE instances loaded as part of startup script.
     RE does not explicitly stop the running loop.
     """
-    import asyncio, gc
+    import asyncio
+    import gc
+
     yield
     gc.collect()
-    loops = [
-        obj for obj in gc.get_objects()
-        if isinstance(obj, asyncio.AbstractEventLoop) and not obj.is_closed()
-    ]
+    loops = [obj for obj in gc.get_objects() if isinstance(obj, asyncio.AbstractEventLoop) and not obj.is_closed()]
     for loop in loops:
         if loop.is_running():
             loop.call_soon_threadsafe(loop.stop)
@@ -55,5 +54,6 @@ def print_open_file_descriptors(request):
             tty.write("\n" + msg + "\n")
     except OSError:
         import sys
+
         sys.stderr.write("\n" + msg + "\n")
         sys.stderr.flush()

@@ -922,7 +922,6 @@ class ZMQCommSendThreads:
             self._ctx.term()
             self._ctx = None
 
-
     def _zmq_socket_restart(self):
         """
         Restart (close and open the socket). Should be called in case of communication
