@@ -178,11 +178,12 @@ class PublishZMQStreamOutput:
         self._zmq_topic_console = zmq_topic_console
         self._zmq_topic_info = zmq_topic_info
 
+        self._context = None
         self._socket = None
         if self._zmq_publish_on:
             try:
-                context = zmq.Context()
-                self._socket = context.socket(zmq.PUB)
+                self._context = zmq.Context()
+                self._socket = self._context.socket(zmq.PUB)
                 self._socket.bind(self._zmq_publish_addr)
             except Exception as ex:
                 logger.error(
@@ -210,6 +211,8 @@ class PublishZMQStreamOutput:
         self.stop()
         if self._socket:
             self._socket.close()
+        if self._context:
+            self._context.term()
 
     def _start_processing_thread(self):
         # The thread should not be started of Message Queue object does not exist
@@ -321,12 +324,13 @@ class _ReceiveZMQStreamOutput:
 
         self._encoding = process_zmq_encoding_name(encoding)
 
+        self._context = None
         self._socket = None
         self._socket_subscribed = False
 
         if self._zmq_subscribe_addr:
-            context = zmq.Context()
-            self._socket = context.socket(zmq.SUB)
+            self._context = zmq.Context()
+            self._socket = self._context.socket(zmq.SUB)
             self._socket.connect(self._zmq_subscribe_addr)
 
     def subscribe(self):
@@ -392,7 +396,10 @@ class _ReceiveZMQStreamOutput:
         return payload
 
     def __del__(self):
-        self._socket.close()
+        if self._socket:
+            self._socket.close()
+        if self._context:
+            self._context.term()
 
 
 class ReceiveConsoleOutput(_ReceiveZMQStreamOutput):
@@ -543,13 +550,14 @@ class _ReceiveZMQStreamOutputAsync:
 
         self._encoding = process_zmq_encoding_name(encoding)
 
+        self._context = None
         self._socket = None
         self._socket_subscribed = False
         self._unsubscribe_when_stopping = False
 
         if self._zmq_subscribe_addr:
-            context = zmq.asyncio.Context()
-            self._socket = context.socket(zmq.SUB)
+            self._context = zmq.asyncio.Context()
+            self._socket = self._context.socket(zmq.SUB)
             self._socket.connect(self._zmq_subscribe_addr)
 
     def subscribe(self):
@@ -683,6 +691,8 @@ class _ReceiveZMQStreamOutputAsync:
         self.stop()
         if self._socket:
             self._socket.close()
+        if self._context:
+            self._context.term()
 
 
 class ReceiveConsoleOutputAsync(_ReceiveZMQStreamOutputAsync):
