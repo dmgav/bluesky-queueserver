@@ -6,6 +6,38 @@ import pytest
 from bluesky_queueserver.manager.profile_ops import clear_registered_items
 
 
+@pytest.fixture(autouse=True)
+def setup_and_teardown_for_every_test():
+    print("Clearing registered items ...")
+    clear_registered_items()
+    yield
+    print("Clearing registered items ...")
+    clear_registered_items()
+
+
+@pytest.fixture(autouse=True)
+def close_dangling_event_loops():
+    """
+    Dangling loops are mostly due to RE instances loaded as part of startup script.
+    RE does not explicitly stop the running loop.
+    """
+    import asyncio, gc
+    yield
+    gc.collect()
+    loops = [
+        obj for obj in gc.get_objects()
+        if isinstance(obj, asyncio.AbstractEventLoop) and not obj.is_closed()
+    ]
+    for loop in loops:
+        if loop.is_running():
+            loop.call_soon_threadsafe(loop.stop)
+    if loops:
+        ttime.sleep(0.1)  # allow running loops to stop before closing
+    for loop in loops:
+        if not loop.is_closed() and not loop.is_running():
+            loop.close()
+
+
 @pytest.fixture(scope="session", autouse=True)
 def print_open_file_descriptors():
     yield
@@ -23,12 +55,3 @@ def print_open_file_descriptors():
 
         sys.stderr.write(msg)
         sys.stderr.flush()
-
-
-@pytest.fixture(autouse=True)
-def setup_and_teardown_for_every_test():
-    print("Clearing registered items ...")
-    clear_registered_items()
-    yield
-    print("Clearing registered items ...")
-    clear_registered_items()
