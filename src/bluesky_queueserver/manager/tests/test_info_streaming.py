@@ -64,6 +64,9 @@ def test_zmq_info_streaming_1(monkeypatch, re_manager_cmd, stream_enabled):  # n
     if stream_enabled is not None:
         params_server.append(f"--zmq-publish-info={'ON' if stream_enabled else 'OFF'}")
 
+    # 'zmq_publish_info' defaults to ON, so the default (None) case streams messages.
+    stream_on = stream_enabled is not False
+
     zmq_encoding = use_zmq_encoding_for_tests()
 
     rm_info = ReceiveMessages(
@@ -78,7 +81,7 @@ def test_zmq_info_streaming_1(monkeypatch, re_manager_cmd, stream_enabled):  # n
     re_manager_cmd(params_server)
 
     # Test periodic streaming of status messages (once per second)
-    if stream_enabled is True:
+    if stream_on:
         ttime.sleep(6)
         assert len(rm_info.received_msgs) > 5
 
@@ -96,19 +99,19 @@ def test_zmq_info_streaming_1(monkeypatch, re_manager_cmd, stream_enabled):  # n
 
     # The assumption is that only 'status' messages are streamed.
     # If other messages are streamed, then the test needs to be adjusted.
-    if stream_enabled is True:
+    if stream_on:
         status_1 = rm_info.received_msgs[-1]["msg"]["status"]
         assert status_1["worker_environment_exists"] is True
 
     zmq_request("environment_close")
     assert wait_for_condition(time=3, condition=condition_environment_closed)
 
-    if stream_enabled is True:
+    if stream_on:
         status_2 = rm_info.received_msgs[-1]["msg"]["status"]
         assert status_2["worker_environment_exists"] is False
         assert status_2["status_uid"] != status_1["status_uid"]
 
-    if stream_enabled is not True:
+    if not stream_on:
         assert len(rm_info.received_msgs) == 0
 
     rm_info.stop()

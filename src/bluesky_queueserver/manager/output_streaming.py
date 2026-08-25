@@ -115,29 +115,8 @@ def push_info_to_msg_queue(*, key, msg, msg_queue):
     msg_queue.put(msg)
 
 
-def push_progress_to_msg_queue(*, msg, msg_queue):
-    """
-    Format a progress message and put it into the message queue. The message is published
-    to the ``progress`` channel on the ``QS_Progress`` 0MQ topic.
-
-    Parameters
-    ----------
-    msg : dict
-        The progress payload dictionary.
-    msg_queue : multiprocessing.Queue
-        Reference to the queue used for collecting messages.
-
-    Returns
-    -------
-    None
-    """
-    msg = {"channel": "progress", "time": ttime.time(), "msg": msg}
-    msg_queue.put(msg)
-
-
 _default_zmq_console_topic = "QS_Console"
 _default_zmq_info_topic = "QS_Info"
-_default_zmq_progress_topic = "QS_Progress"
 
 
 class PublishZMQStreamOutput:
@@ -160,8 +139,6 @@ class PublishZMQStreamOutput:
         Enable/disable publishing console output to 0MQ socket (``QS_Console`` topic).
     zmq_publish_info : boolean
         Enable/disable publishing info/status messages to 0MQ socket (``QS_Info`` topic).
-    zmq_publish_progress : boolean
-        Enable/disable publishing progress messages to 0MQ socket (``QS_Progress`` topic).
     zmq_publish_addr : str, None
         Address of 0MQ PUB socket for the publishing server. If ``None``, then
         the default address ``tcp://*:60625`` is used.
@@ -171,8 +148,6 @@ class PublishZMQStreamOutput:
         Name of the 0MQ topic where the console messages are published.
     zmq_topic_info : str
         Name of the 0MQ topic where the system information messages are published.
-    zmq_topic_progress : str
-        Name of the 0MQ topic where the progress messages are published.
     name : str
         Name of the thread where the messages are published.
     """
@@ -184,12 +159,10 @@ class PublishZMQStreamOutput:
         console_output_on=True,
         zmq_publish_console=True,
         zmq_publish_info=True,
-        zmq_publish_progress=True,
         zmq_publish_addr=None,
         encoding="json",
         zmq_topic_console=_default_zmq_console_topic,
         zmq_topic_info=_default_zmq_info_topic,
-        zmq_topic_progress=_default_zmq_progress_topic,
         name="RE Console Output Publisher",
     ):
         self._thread_running = False  # Set True to exit the thread
@@ -200,7 +173,6 @@ class PublishZMQStreamOutput:
         self._console_output_on = console_output_on
         self._zmq_publish_console = zmq_publish_console
         self._zmq_publish_info = zmq_publish_info
-        self._zmq_publish_progress = zmq_publish_progress
 
         self._encoding = process_zmq_encoding_name(encoding)
 
@@ -209,7 +181,6 @@ class PublishZMQStreamOutput:
         self._zmq_publish_addr = zmq_publish_addr
         self._zmq_topic_console = zmq_topic_console
         self._zmq_topic_info = zmq_topic_info
-        self._zmq_topic_progress = zmq_topic_progress
 
         zmq_publish_on = zmq_publish_console or zmq_publish_info or zmq_publish_progress
 
@@ -281,8 +252,6 @@ class PublishZMQStreamOutput:
                 topic = self._zmq_topic_console
             elif channel == "info" and self._zmq_publish_info:
                 topic = self._zmq_topic_info
-            elif channel == "progress" and self._zmq_publish_progress:
-                topic = self._zmq_topic_progress
             else:
                 return
             payload = {k: payload[k] for k in ("time", "msg")}
@@ -472,26 +441,8 @@ class ReceiveSystemInfo(_ReceiveZMQStreamOutput):
         )
 
 
-class ReceiveProgressInfo(_ReceiveZMQStreamOutput):
-    """
-    The class defaults are set to receive 0MQ messages with progress information
-    (RunEngine waiting/watcher updates).
-    """
-
-    def __init__(
-        self, *, zmq_subscribe_addr=None, encoding="json", zmq_topic=_default_zmq_progress_topic, timeout=1000
-    ):
-        super().__init__(
-            zmq_subscribe_addr=zmq_subscribe_addr,
-            encoding=encoding,
-            zmq_topic=zmq_topic,
-            timeout=timeout,
-        )
-
-
 ReceiveConsoleOutput.__doc__ += _ReceiveZMQStreamOutput.__doc__
 ReceiveSystemInfo.__doc__ += _ReceiveZMQStreamOutput.__doc__
-ReceiveProgressInfo.__doc__ += _ReceiveZMQStreamOutput.__doc__
 
 
 class _ReceiveZMQStreamOutputAsync:
@@ -783,26 +734,8 @@ class ReceiveSystemInfoAsync(_ReceiveZMQStreamOutputAsync):
         )
 
 
-class ReceiveProgressInfoAsync(_ReceiveZMQStreamOutputAsync):
-    """
-    The class defaults are set to receive 0MQ messages with progress information
-    (RunEngine waiting/watcher updates).
-    """
-
-    def __init__(
-        self, *, zmq_subscribe_addr=None, encoding="json", zmq_topic=_default_zmq_progress_topic, timeout=1000
-    ):
-        super().__init__(
-            zmq_subscribe_addr=zmq_subscribe_addr,
-            encoding=encoding,
-            zmq_topic=zmq_topic,
-            timeout=timeout,
-        )
-
-
 ReceiveConsoleOutputAsync.__doc__ += _ReceiveZMQStreamOutputAsync.__doc__
 ReceiveSystemInfoAsync.__doc__ += _ReceiveZMQStreamOutputAsync.__doc__
-ReceiveProgressInfoAsync.__doc__ += _ReceiveZMQStreamOutputAsync.__doc__
 
 
 def qserver_console_monitor_cli():

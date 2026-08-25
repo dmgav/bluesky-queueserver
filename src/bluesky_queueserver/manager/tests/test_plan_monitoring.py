@@ -186,11 +186,13 @@ class _MockStatus:
 
 
 def _get_progress_messages(mock_queue):
-    """Extract only progress payloads from the mock queue."""
+    """Extract only progress payloads from the mock queue (info channel, 'device_progress' key)."""
     results = []
     for msg in mock_queue.messages:
-        if msg.get("channel") == "progress" and isinstance(msg.get("msg"), dict):
-            results.append(msg["msg"])
+        if msg.get("channel") == "info" and isinstance(msg.get("msg"), dict):
+            payload = msg["msg"].get("device_progress")
+            if isinstance(payload, dict):
+                results.append(payload)
     return results
 
 

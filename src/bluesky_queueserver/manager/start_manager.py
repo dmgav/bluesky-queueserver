@@ -633,13 +633,13 @@ def start_manager():
     )
 
     group_console_output.add_argument(
-        "--zmq-publish-progress",
-        dest="zmq_publish_progress",
+        "--zmq-publish-device-progress",
+        dest="zmq_publish_device_progress",
         type=str,
         choices=["ON", "OFF"],
         default="ON",
-        help="Enable (ON) or disable (OFF) publishing of RunEngine waiting/progress updates "
-        "to 0MQ (default: %(default)s).",
+        help="Enable (ON) or disable (OFF) publishing of RunEngine device progress updates "
+        "(waiting/watcher updates, e.g. motor position while moving) to 0MQ (default: %(default)s).",
     )
 
     group_console_output.add_argument(
@@ -698,12 +698,11 @@ def start_manager():
         console_output_on=settings.print_console_output,
         zmq_publish_console=settings.zmq_publish_console,
         zmq_publish_info=settings.zmq_publish_info,
-        zmq_publish_progress=settings.zmq_publish_progress,
         zmq_publish_addr=settings.zmq_info_addr,
         encoding=settings.zmq_encoding,
     )
 
-    zmq_publish_on = settings.zmq_publish_console or settings.zmq_publish_info or settings.zmq_publish_progress
+    zmq_publish_on = settings.zmq_publish_console or settings.zmq_publish_info
     if zmq_publish_on:
         # Wait for a short period to allow monitoring applications to connect.
         ttime.sleep(1)
@@ -800,7 +799,7 @@ def start_manager():
     config_worker["ipython_control_port"] = settings.ipython_control_port
     config_worker["ignore_invalid_plans"] = settings.ignore_invalid_plans
     config_worker["permitted_re_metadata_keys"] = settings.permitted_re_metadata_keys
-    config_worker["zmq_publish_progress"] = settings.zmq_publish_progress
+    config_worker["zmq_publish_device_progress"] = settings.zmq_publish_device_progress
 
     existing_pd_path = settings.existing_plans_and_devices_path
     if not existing_pd_path:

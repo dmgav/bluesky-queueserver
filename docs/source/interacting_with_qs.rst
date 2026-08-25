@@ -77,6 +77,17 @@ other information may be added to the stream in the future::
 
   {"time": <timestamp>, "msg": {"status": <status-info>}}
 
+While a plan is running, RE Manager also streams device progress updates (RunEngine
+``waiting_hook`` / watcher updates, e.g. the position of a moving motor) on the same socket
+under the ``device_progress`` key. Each update contains the device name, current/initial/target
+values, engineering units, precision, completion fraction, elapsed/remaining time, and a ``done``
+flag. A message with ``{"completed": true}`` is sent when the RunEngine finishes waiting::
+
+  {"time": <timestamp>, "msg": {"device_progress": <progress-info>}}
+
+Device progress streaming is enabled by default and can be disabled using the
+``--zmq-publish-device-progress OFF`` parameter of ``start-re-manager``.
+
 
 The ``ReceiveSystemInfo`` class can be used in synchronous or thread-based applications to
 receive the streamed messages:

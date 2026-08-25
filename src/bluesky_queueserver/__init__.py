@@ -12,8 +12,6 @@ from .manager.gen_lists import gen_list_of_plans_and_devices  # noqa: E402, F401
 from .manager.output_streaming import (  # noqa: E402, F401
     ReceiveConsoleOutput,
     ReceiveConsoleOutputAsync,
-    ReceiveProgressInfo,
-    ReceiveProgressInfoAsync,
     ReceiveSystemInfo,
     ReceiveSystemInfoAsync,
 )

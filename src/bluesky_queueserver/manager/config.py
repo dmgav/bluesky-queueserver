@@ -186,7 +186,7 @@ _key_mapping = {
     "zmq_encoding": "network/zmq_encoding",
     "zmq_publish_console": "network/zmq_publish_console",
     "zmq_publish_info": "network/zmq_publish_info",
-    "zmq_publish_progress": "network/zmq_publish_progress",
+    "zmq_publish_device_progress": "network/zmq_publish_device_progress",
     "redis_addr": "network/redis_addr",
     "redis_name_prefix": "network/redis_name_prefix",
     "ignore_invalid_plans": "startup/ignore_invalid_plans",
@@ -363,10 +363,10 @@ class Settings:
             value_cli=self._args_existing("zmq_publish_info"),
         )
 
-        self._settings["zmq_publish_progress"] = self._get_param_boolean(
-            value_default=args.zmq_publish_progress,
-            value_config=self._get_value_from_config("zmq_publish_progress"),
-            value_cli=self._args_existing("zmq_publish_progress"),
+        self._settings["zmq_publish_device_progress"] = self._get_param_boolean(
+            value_default=args.zmq_publish_device_progress,
+            value_config=self._get_value_from_config("zmq_publish_device_progress"),
+            value_cli=self._args_existing("zmq_publish_device_progress"),
         )
 
         redis_addr = self._get_param(

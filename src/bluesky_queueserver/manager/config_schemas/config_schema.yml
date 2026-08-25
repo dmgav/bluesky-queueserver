@@ -23,7 +23,7 @@ properties:
         type: boolean
       zmq_publish_info:
         type: boolean
-      zmq_publish_progress:
+      zmq_publish_device_progress:
         type: boolean
       redis_addr:
         type: string

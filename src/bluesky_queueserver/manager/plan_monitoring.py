@@ -5,9 +5,11 @@ import time as ttime
 
 from bluesky.callbacks.core import CallbackBase
 
-from .output_streaming import push_progress_to_msg_queue
+from .output_streaming import push_info_to_msg_queue
 
 logger = logging.getLogger(__name__)
+
+_device_progress_key = "device_progress"
 
 
 class RunList:
@@ -230,8 +232,9 @@ def _to_json_safe(value):
 class WatcherStreamManager:
     """
     RunEngine ``waiting_hook``-compatible class. Instead of rendering progress bars,
-    it serializes watcher updates and pushes them to ``msg_queue`` on the ``"progress"``
-    channel (``QS_Progress`` 0MQ topic) so they are published to 0MQ / websocket subscribers.
+    it serializes watcher updates and pushes them to ``msg_queue`` on the ``"info"``
+    channel (``QS_Info`` 0MQ topic) under the ``"device_progress"`` key so they are
+    published to 0MQ / websocket subscribers.
 
     The RunEngine calls instances of this class with a set of Status objects each time
     it enters a wait, and with ``None`` when the wait completes. For each status object
@@ -340,7 +343,7 @@ class WatcherStreamManager:
             }
 
             try:
-                push_progress_to_msg_queue(msg=payload, msg_queue=self._msg_queue)
+                push_info_to_msg_queue(key=_device_progress_key, msg=payload, msg_queue=self._msg_queue)
             except Exception:
                 logger.debug("Failed to push progress update to msg_queue", exc_info=True)
 
@@ -352,6 +355,6 @@ class WatcherStreamManager:
         """
         payload = {"completed": True}
         try:
-            push_progress_to_msg_queue(msg=payload, msg_queue=self._msg_queue)
+            push_info_to_msg_queue(key=_device_progress_key, msg=payload, msg_queue=self._msg_queue)
         except Exception:
             logger.debug("Failed to push progress completion to msg_queue", exc_info=True)
