@@ -90,7 +90,6 @@ ignore_missing_imports = true # Ignore missing stubs in imported modules
 # Don't collect the interactive directory which is intended for manual execution
 addopts = """
     --tb=native -vv 
-    --doctest-modules 
     --doctest-glob="*.rst" 
     --ignore src/bluesky_queueserver/profile_collection_sim
     """
