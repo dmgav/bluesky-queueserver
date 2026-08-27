@@ -628,18 +628,19 @@ def start_manager():
         dest="zmq_publish_info",
         type=str,
         choices=["ON", "OFF"],
-        default="ON",
+        default="OFF",
         help="Enable (ON) or disable (OFF) publishing of info/status updates to 0MQ (default: %(default)s).",
     )
 
     group_console_output.add_argument(
-        "--zmq-publish-device-progress",
-        dest="zmq_publish_device_progress",
+        "--zmq-stream-device-progress",
+        dest="zmq_stream_device_progress",
         type=str,
         choices=["ON", "OFF"],
-        default="ON",
-        help="Enable (ON) or disable (OFF) publishing of RunEngine device progress updates "
-        "(waiting/watcher updates, e.g. motor position while moving) to 0MQ (default: %(default)s).",
+        default="OFF",
+        help="Enable (ON) or disable (OFF) publishing of optional RunEngine device progress updates "
+        "(waiting/watcher updates, e.g. motor position during motion) to 0MQ. This parameter is "
+        "only effective when --zmq-publish-info=ON; it is ignored otherwise (default: %(default)s).",
     )
 
     group_console_output.add_argument(
@@ -799,7 +800,7 @@ def start_manager():
     config_worker["ipython_control_port"] = settings.ipython_control_port
     config_worker["ignore_invalid_plans"] = settings.ignore_invalid_plans
     config_worker["permitted_re_metadata_keys"] = settings.permitted_re_metadata_keys
-    config_worker["zmq_publish_device_progress"] = settings.zmq_publish_device_progress
+    config_worker["zmq_stream_device_progress"] = settings.zmq_stream_device_progress and settings.zmq_publish_info
 
     existing_pd_path = settings.existing_plans_and_devices_path
     if not existing_pd_path:

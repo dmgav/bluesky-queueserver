@@ -246,7 +246,7 @@ class RunEngineWorker(Process):
         """
         if self._RE is None or self._msg_queue is None:
             return
-        if not self._config_dict.get("zmq_publish_device_progress", True):
+        if not self._config_dict.get("zmq_stream_device_progress", True):
             return
         try:
             from .plan_monitoring import WatcherStreamManager

@@ -514,7 +514,7 @@ def _get_expected_settings_default_1(_1, _2):
         "zmq_private_key": None,
         "zmq_publish_console": False,
         "zmq_publish_info": True,
-        "zmq_publish_device_progress": True,
+        "zmq_stream_device_progress": True,
     }
 
 
@@ -619,7 +619,7 @@ def _get_expected_settings_config_2(file_dir, ip_con_dir):
         "zmq_private_key": "Ue=.po0aQ9.}<Xvrny+f{V04XMc6JZ9ufKf5aeFy",
         "zmq_publish_console": True,
         "zmq_publish_info": True,
-        "zmq_publish_device_progress": True,
+        "zmq_stream_device_progress": True,
     }
 
 
@@ -715,7 +715,7 @@ def _get_expected_settings_params_3(file_dir, _):
         "zmq_private_key": "Ue=.po0aQ9.}<Xvrny+f{V04XMc6JZ9ufKf5aeFy",
         "zmq_publish_console": False,
         "zmq_publish_info": True,
-        "zmq_publish_device_progress": True,
+        "zmq_stream_device_progress": True,
     }
 
 

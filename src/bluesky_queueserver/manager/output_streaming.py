@@ -182,7 +182,7 @@ class PublishZMQStreamOutput:
         self._zmq_topic_console = zmq_topic_console
         self._zmq_topic_info = zmq_topic_info
 
-        zmq_publish_on = zmq_publish_console or zmq_publish_info or zmq_publish_progress
+        zmq_publish_on = zmq_publish_console or zmq_publish_info
 
         self._context = None
         self._socket = None
