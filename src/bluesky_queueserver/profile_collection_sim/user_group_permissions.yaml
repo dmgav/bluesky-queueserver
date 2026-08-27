@@ -28,6 +28,7 @@ user_groups:
     allowed_plans:
       - ":^count"  # Use regular expression patterns
       - ":scan$"
+      - "mv"  # Use full plan name
     forbidden_plans:
       - ":^adaptive_scan$" # Use regular expression patterns
       - ":^inner_product"
