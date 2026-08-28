@@ -259,6 +259,19 @@ class WatcherStreamManager:
         self._last_sent = {}  # id(status) -> timestamp of last sent update
         self._status_counter = 0  # Counter for generating labels when name is None
 
+        # Reference to the callback that was already set at the Run Engine, (e.x.
+        # the callback that prints the progress bar in the terminal). The existing
+        # callback is replaced by the reference of WatcherStreamManager class.
+        self._waiting_hook = None
+
+    @property
+    def waiting_hook(self):
+        return self._waiting_hook
+
+    @waiting_hook.setter
+    def waiting_hook(self, v):
+        self._waiting_hook = v or None
+
     def __call__(self, status_objs_or_none):
         """
         Called by the RunEngine with a set of Status objects or ``None``.
@@ -269,21 +282,24 @@ class WatcherStreamManager:
             self._watched.clear()
             self._last_sent.clear()
             self._status_counter = 0
-            return
 
-        for st in status_objs_or_none:
-            st_id = id(st)
-            if st_id in self._watched:
-                continue
-            self._watched.add(st_id)
-            if not hasattr(st, "watch") or getattr(st, "done", False):
-                continue
-            try:
-                self._status_counter += 1
-                label = self._status_counter
-                st.watch(self._make_callback(st, label))
-            except Exception:
-                logger.debug("Status object does not support watch(): %r", st, exc_info=True)
+        else:
+            for st in status_objs_or_none:
+                st_id = id(st)
+                if st_id in self._watched:
+                    continue
+                self._watched.add(st_id)
+                if not hasattr(st, "watch") or getattr(st, "done", False):
+                    continue
+                try:
+                    self._status_counter += 1
+                    label = self._status_counter
+                    st.watch(self._make_callback(st, label))
+                except Exception:
+                    logger.debug("Status object does not support watch(): %r", st, exc_info=True)
+
+        if self.waiting_hook:
+            self.waiting_hook(status_objs_or_none)
 
     def _make_callback(self, status_obj, label):
         """

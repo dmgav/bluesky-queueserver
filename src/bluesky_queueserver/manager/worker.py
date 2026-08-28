@@ -152,6 +152,9 @@ class RunEngineWorker(Process):
         # Class that supports communication over the pipe
         self._comm_to_manager = None
 
+        # The reference for device progress update stream
+        self._device_progress_stream = None
+
         # Note: 'self._config' is a private attribute of 'multiprocessing.Process'. Overriding
         #   this variable may lead to unpredictable and hard to debug issues.
         self._config_dict = config or {}
@@ -251,9 +254,14 @@ class RunEngineWorker(Process):
         try:
             from .plan_monitoring import WatcherStreamManager
 
-            self._watcher_stream = WatcherStreamManager(msg_queue=self._msg_queue)
-            self._RE.waiting_hook = self._watcher_stream
-            logger.info("Progress streaming is enabled (RE.waiting_hook is set).")
+            if not isinstance(self._device_progress_stream, WatcherStreamManager):
+                if not self._device_progress_stream:
+                    self._device_progress_stream = WatcherStreamManager(msg_queue=self._msg_queue)
+                    self._device_progress_stream.waiting_hook = self._RE.waiting_hook
+                else:
+                    self._device_progress_stream.waiting_hook = self._RE.waiting_hook
+                self._RE.waiting_hook = self._device_progress_stream
+                logger.info("Progress streaming is enabled (RE.waiting_hook is set).")
         except Exception as ex:
             logger.warning("Failed to set up progress streaming: %s", ex)
 
@@ -263,6 +271,7 @@ class RunEngineWorker(Process):
         is used exclusively to pass data between threads and may contain at most 1 element.
         This is not a plan queue. The function is expected to run in the main thread.
         """
+        self._setup_waiting_hook()
         if exec_option == ExecOption.TASK:
             self._execute_task(parameters, exec_option)
         else:
@@ -836,7 +845,6 @@ class RunEngineWorker(Process):
         if update_re:
             if ("RE" in self._re_namespace) and (self._RE != self._re_namespace["RE"]):
                 self._RE = self._re_namespace["RE"]
-                self._setup_waiting_hook()
                 logger.info("Run Engine instance ('RE') was replaced.")
 
         if update_lists:
@@ -1485,7 +1493,6 @@ class RunEngineWorker(Process):
 
                 # Copy reference to Run Engine from the namespace. Set to None if RE does not exist.
                 self._RE = self._re_namespace.get("RE", None)
-                self._setup_waiting_hook()
 
                 self._execution_queue = queue.Queue()
 
