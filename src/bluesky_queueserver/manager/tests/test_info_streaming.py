@@ -22,6 +22,7 @@ from .common import (
     re_manager_cmd,  # noqa: F401
     use_zmq_encoding_for_tests,
     wait_for_condition,
+    wait_for_task_result,
     zmq_request,
 )
 
@@ -56,6 +57,11 @@ class ReceiveMessages(threading.Thread):
 
     def unsubscribe(self):
         self._rco.unsubscribe()
+
+    def clear(self):
+        # Clear the messages
+        self.received_msgs.clear()
+        self.n_timeouts = 0
 
     def filter_msgs(self, key):
         """
@@ -142,7 +148,26 @@ from ophyd_async.core import init_devices
 
 with init_devices():
     sim_motor = sim.SimMotor(name="sim_motor", instant=False)
+
+
+# Check waiting_hook and WatcherStreamManager state
+def unit_test_waiting_hook(device_progress_enabled):
+    from bluesky_queueserver.manager.plan_monitoring import WatcherStreamManager
+    msg = ""
+    if device_progress_enabled:
+        if not isinstance(RE.waiting_hook, WatcherStreamManager):
+            msg = "RE.waiting_hook is not pointing to WatcherStreamManager object"
+        elif isinstance(RE.waiting_hook.waiting_hook, WatcherStreamManager):
+            msg = "RE.waiting_hook.waiting_hook is pointing to WatcherStreamManager object"
+        elif RE.waiting_hook == RE.waiting_hook.waiting_hook:
+            msg = "RE.waiting_hook and RE.waiting_hook.waiting_hook are pointing to the same object"
+    else:
+        if isinstance(RE.waiting_hook, WatcherStreamManager):
+            msg = "RE.waiting_hook is pointing to WatcherStreamManager object"
+
+    return msg == "", msg
 """
+
 
 _script_enable_progress_bar = """
 
@@ -213,42 +238,73 @@ def test_zmq_info_streaming_2(
 
         re_manager_cmd(params_server)
 
-        msgs = rm_info.filter_msgs(msg_key)
-        assert len(msgs) == 0
-
         zmq_request("environment_open")
         assert wait_for_condition(time=timeout_env_open, condition=condition_environment_created)
 
-        _plan_mv = {"name": "mv", "args": ["sim_motor", 5.0], "item_type": "plan"}
-        params = {"item": _plan_mv, "user": _user, "user_group": _user_group}
-        resp2, _ = zmq_request("queue_item_add", params)
-        assert resp2["success"] is True, f"resp={resp2}"
+        for _ntest in range(2):
+            rm_console.clear()
+            rm_info.clear()
 
-        resp3, _ = zmq_request("queue_start")
-        assert resp3["success"] is True
+            msgs = rm_info.filter_msgs(msg_key)
+            assert len(msgs) == 0
 
-        assert wait_for_condition(time=60, condition=condition_queue_processing_finished)
+            pos_start = _ntest * 5.0
+            pos_finish = pos_start + 5.0
+
+            _plan_mv = {"name": "mv", "args": ["sim_motor", pos_finish], "item_type": "plan"}
+            params = {"item": _plan_mv, "user": _user, "user_group": _user_group}
+            resp2, _ = zmq_request("queue_item_add", params)
+            assert resp2["success"] is True, f"resp={resp2}"
+
+            resp3, _ = zmq_request("queue_start")
+            assert resp3["success"] is True
+
+            assert wait_for_condition(time=60, condition=condition_queue_processing_finished)
+            ##ttime.sleep(2)
+
+            msgs = rm_info.filter_msgs(msg_key)
+            print(f"msgs = {pprint.pformat(msgs)}")
+            if stream_dev_progress_enabled is True:
+                assert len(msgs) > 3
+                assert msgs[0]["msg"]["device_progress"]["name"] == "sim_motor"
+                assert msgs[0]["msg"]["device_progress"]["current"] == pos_start
+                assert msgs[-2]["msg"]["device_progress"]["current"] == pos_finish
+                assert msgs[-1]["msg"]["device_progress"]["completed"] is True
+            else:
+                assert len(msgs) == 0
+
+            # Check that the progress bar was also sent to the console output
+            progress_console_msgs = [_ for _ in rm_console.received_msgs if re.search("sim_motor:.+%.*", _["msg"])]
+            if enable_progress_bar:
+                assert len(progress_console_msgs) > 0
+            else:
+                assert len(progress_console_msgs) == 0
+
+            # --------  Check that the waiting hook is pointing to the WatcherStreamManager object
+            func_info = {"name": "unit_test_waiting_hook",
+                         "item_type": "function",
+                         "kwargs": {"device_progress_enabled": bool(stream_dev_progress_enabled)}}
+            resp, _ = zmq_request(
+                "function_execute",
+                params={
+                    "item": func_info,
+                    "user": _user,
+                    "user_group": _user_group,
+                    "run_in_background": False,
+                },
+            )
+            assert resp["success"] is True, pprint.pformat(resp)
+            task_uid = resp["task_uid"]
+
+            assert wait_for_task_result(10, task_uid)
+
+            resp, _ = zmq_request("task_result", params={"task_uid": task_uid})
+            result = resp["result"]["return_value"]
+            assert result[0], result[1]
+            # ---------------------------------------------------------------------------------------
 
         zmq_request("environment_close")
         assert wait_for_condition(time=3, condition=condition_environment_closed)
-
-        msgs = rm_info.filter_msgs(msg_key)
-        print(f"msgs = {pprint.pformat(msgs)}")
-        if stream_dev_progress_enabled is True:
-            assert len(msgs) > 3
-            assert msgs[0]["msg"]["device_progress"]["name"] == "sim_motor"
-            assert msgs[0]["msg"]["device_progress"]["current"] == 0.0
-            assert msgs[-2]["msg"]["device_progress"]["current"] == 5.0
-            assert msgs[-1]["msg"]["device_progress"]["completed"] is True
-        else:
-            assert len(msgs) == 0
-
-        # Check that the progress bar was also sent to the console output
-        progress_console_msgs = [_ for _ in rm_console.received_msgs if re.search("sim_motor:.+%.*", _["msg"])]
-        if enable_progress_bar:
-            assert len(progress_console_msgs) > 0
-        else:
-            assert len(progress_console_msgs) == 0
 
     finally:
         rm_console.stop()
