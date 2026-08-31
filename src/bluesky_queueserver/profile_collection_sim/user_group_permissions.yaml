@@ -43,6 +43,7 @@ user_groups:
     allowed_functions:
       - ":element$"
       - ":elements$"
+      - ":^unit_test"
       - "function_sleep"
       - "clear_buffer"
     forbidden_functions:
