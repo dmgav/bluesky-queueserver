@@ -21,6 +21,10 @@ properties:
         type: string
       zmq_publish_console:
         type: boolean
+      zmq_publish_info:
+        type: boolean
+      zmq_stream_device_progress:
+        type: boolean
       redis_addr:
         type: string
       redis_name_prefix:

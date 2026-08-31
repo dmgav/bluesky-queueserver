@@ -513,6 +513,8 @@ def _get_expected_settings_default_1(_1, _2):
         "zmq_info_addr": "tcp://*:60625",
         "zmq_private_key": None,
         "zmq_publish_console": False,
+        "zmq_publish_info": False,
+        "zmq_stream_device_progress": False,
     }
 
 
@@ -528,6 +530,8 @@ network:
   zmq_private_key: {0}
   zmq_info_addr: tcp://*:60627
   zmq_publish_console: true
+  zmq_publish_info: true
+  zmq_stream_device_progress: true
   redis_addr: localhost:6379
   redis_name_prefix: qs_unit_tests2
 worker:
@@ -616,6 +620,8 @@ def _get_expected_settings_config_2(file_dir, ip_con_dir):
         "zmq_info_addr": "tcp://*:60627",
         "zmq_private_key": "Ue=.po0aQ9.}<Xvrny+f{V04XMc6JZ9ufKf5aeFy",
         "zmq_publish_console": True,
+        "zmq_publish_info": True,
+        "zmq_stream_device_progress": True,
     }
 
 
@@ -654,6 +660,8 @@ def _get_cli_params_3(file_dir):
         "/d/",
         "--zmq-info-addr=tcp://*:60629",
         "--zmq-publish-console=OFF",
+        "--zmq-publish-info=OFF",
+        "--zmq-stream-device-progress=OFF",
         "--console-output=OFF",
     ]
 
@@ -710,6 +718,8 @@ def _get_expected_settings_params_3(file_dir, _):
         "zmq_info_addr": "tcp://*:60629",
         "zmq_private_key": "Ue=.po0aQ9.}<Xvrny+f{V04XMc6JZ9ufKf5aeFy",
         "zmq_publish_console": False,
+        "zmq_publish_info": False,
+        "zmq_stream_device_progress": False,
     }
 
 

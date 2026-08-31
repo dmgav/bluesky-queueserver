@@ -118,7 +118,8 @@ def test_ReceiveConsoleOutput_1(
     pco = PublishZMQStreamOutput(
         msg_queue=queue,
         console_output_on=console_output_on,
-        zmq_publish_on=zmq_publish_on,
+        zmq_publish_console=zmq_publish_on,
+        zmq_publish_info=zmq_publish_on,
         zmq_publish_addr=zmq_publish_addr,
         zmq_topic_console=zmq_topic_console,
         zmq_topic_info=zmq_topic_info,
@@ -259,7 +260,8 @@ def test_ReceiveConsoleOutputAsync_1(period, cb_type, zmq_encoding, channel):
     pco = PublishZMQStreamOutput(
         msg_queue=queue,
         console_output_on=True,
-        zmq_publish_on=True,
+        zmq_publish_console=True,
+        zmq_publish_info=True,
         zmq_publish_addr=zmq_publish_addr,
         zmq_topic_console=zmq_topic_console,
         zmq_topic_info=zmq_topic_info,
@@ -418,7 +420,8 @@ def test_push_info_to_msg_queue_1(zmq_encoding):
     pco = PublishZMQStreamOutput(
         msg_queue=queue,
         console_output_on=True,
-        zmq_publish_on=True,
+        zmq_publish_console=True,
+        zmq_publish_info=True,
         zmq_publish_addr=zmq_publish_addr,
         zmq_topic_console=zmq_topic_console,
         zmq_topic_info=zmq_topic_info,
