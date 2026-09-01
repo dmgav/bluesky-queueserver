@@ -3297,7 +3297,7 @@ def _prepare_devices(devices, *, max_depth=0, ignore_all_subdevices_if_one_fails
     from bluesky import protocols
     from ophyd.areadetector import ADBase
 
-    def get_device_params(device):
+    def get_device_params(device, device_obj_name):
         movable_protocols = (protocols.Movable,)
         # TODO: remove this check when NamedMovable is available in every Bluesky deployment
         # !!! Checking for NamedMovable involves checking for 'hints' attribute, which tends to
